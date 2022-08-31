@@ -1,1 +1,1 @@
-rootProject.name = "pipeline-scan-autotrigger2"
+rootProject.name = "pipeline-scan-autotrigger"

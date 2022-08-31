@@ -1,27 +1,23 @@
-<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
-    <!-- Unique identifier of the plugin. It should be FQN. It cannot be changed between the plugin versions. -->
     <id>com.example.pipeline-scan-autotrigger</id>
 
-    <!-- Public plugin name should be written in Title Case.
-         Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-name -->
     <name>Veracode Pipeline Scan Auto-Trigger</name>
 
-    <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
     <vendor email="rpereira@veracode.com">Ricardo Pereira</vendor>
 
-    <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
-         Simple HTML elements (text formatting, paragraphs, and lists) can be added inside of <![CDATA[ ]]> tag.
-         Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-description -->
     <description>Automatically triggers a Veracode Pipeline Scan before pushing to a repository</description>
 
-    <!-- Product and plugin compatibility requirements.
-         Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
     <depends>com.intellij.modules.platform</depends>
 
-    <!-- Extension points defined by the plugin.
-         Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
-        <prePushHandler implementation="cadonuno.pipelinescanautotrigger.PipelineScanAutoTriggerListener"/>
+        <prePushHandler
+                implementation="cadonuno.pipelinescanautotrigger.PipelineScanAutoPrePushHandler"/>
+        <applicationService
+                serviceImplementation="cadonuno.pipelinescanautotrigger.settings.ApplicationSettingsState"/>
+        <applicationConfigurable
+                parentId="tools"
+                instance="cadonuno.pipelinescanautotrigger.settings.ApplicationSettingsConfigurable"
+                id="org.intellij.sdk.settings.AppSettingsConfigurable"
+                displayName="Pipeline Scan Auto-Trigger"/>
     </extensions>
 </idea-plugin>
