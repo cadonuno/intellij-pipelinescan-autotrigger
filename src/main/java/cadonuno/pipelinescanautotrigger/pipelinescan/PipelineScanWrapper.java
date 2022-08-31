@@ -4,6 +4,7 @@ package cadonuno.pipelinescanautotrigger.pipelinescan;
 import cadonuno.pipelinescanautotrigger.settings.ApplicationSettingsState;
 import cadonuno.pipelinescanautotrigger.util.ZipHandler;
 import com.intellij.ide.plugins.PluginManager;
+import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
 import org.apache.commons.io.FileUtils;
 
@@ -18,8 +19,8 @@ public class PipelineScanWrapper implements Closeable {
     private static final int READ_TIMEOUT = 1000;
     private final String baseDirectory;
 
-    private PipelineScanWrapper() {
-        baseDirectory = ProjectManager.getInstance().getDefaultProject().getProjectFilePath();
+    private PipelineScanWrapper(Project project) {
+        baseDirectory = project.getProjectFilePath();
         cleanupDirectory();
         File zipToDownload = new File(baseDirectory, ZIP_FILE);
         downloadZip(zipToDownload);
@@ -43,8 +44,8 @@ public class PipelineScanWrapper implements Closeable {
         PluginManager.getLogger().error(message);
     }
 
-    public static PipelineScanWrapper acquire() {
-        return new PipelineScanWrapper();
+    public static PipelineScanWrapper acquire(Project project) {
+        return new PipelineScanWrapper(project);
     }
 
     @Override

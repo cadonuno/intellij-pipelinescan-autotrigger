@@ -15,6 +15,7 @@ public class ApplicationSettingsComponent {
     private final JPanel myMainPanel;
     private final JPanel settingsPanel;
 
+    //TODO: make settings project-specific
     //TODO: add support for credentials file
 
     private final JBCheckBox isEnabledCheckBox = new JBCheckBox("Enabled");
