@@ -1,1 +1,1 @@
-rootProject.name = "intellij-pipelinescan-autotrigger"
+rootProject.name = "pipeline-scan-autotrigger2"
