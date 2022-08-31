@@ -32,7 +32,7 @@ public class PipelineScanWrapper implements Closeable {
                     CONNECT_TIMEOUT,
                     READ_TIMEOUT);
         } catch (IOException e) {
-            return;
+            throw new RuntimeException(e);
         }
     }
 
@@ -46,7 +46,6 @@ public class PipelineScanWrapper implements Closeable {
         cleanupDirectory();
         */
     }
-
     private void cleanupDirectory() {
         File pipelineScanDirectory = new File(baseDirectory, VERACODE_PIPELINESCAN_DIRECTORY);
         if (pipelineScanDirectory.exists()) {
