@@ -17,6 +17,7 @@ public class ApplicationSettingsComponent {
 
     //TODO: make settings project-specific
     //TODO: add support for credentials file
+    //TODO: add support for baseline_file
 
     private final JBCheckBox isEnabledCheckBox = new JBCheckBox("Enabled");
     //Credentials settings:

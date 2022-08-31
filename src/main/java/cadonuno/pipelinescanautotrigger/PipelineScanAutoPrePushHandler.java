@@ -16,7 +16,7 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
     @Override
     public @NotNull
     @Nls(capitalization = Nls.Capitalization.Title) String getPresentableName() {
-        return "Pipeline Scan Auto Trigger Listener";
+        return "Running Veracode Pipeline Scan";
     }
 
     @Override
@@ -30,15 +30,10 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
             return Result.OK;
         }
         Project project = projects[0];
-        boolean hasFailedScan = false;
+        boolean hasFailedScan;
         try (PipelineScanWrapper pipelineScanWrapper = PipelineScanWrapper.acquire(project)) {
-            //call scan
-            pipelineScanWrapper.startScan(applicationSettingsState);
-            //analyze filtered_results json
-            //TODO: implement way of picking file and fail criteria
-
-            // if filtered results is not empty:
-            hasFailedScan = pipelineScanWrapper.hasFailedScan();
+            hasFailedScan = pipelineScanWrapper.startScan(applicationSettingsState) != 0;
+            //TODO display popup with number of issues found
         }
         return hasFailedScan ? Result.ABORT : Result.OK;
     }

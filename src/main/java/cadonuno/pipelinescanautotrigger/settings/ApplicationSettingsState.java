@@ -109,4 +109,30 @@ public class ApplicationSettingsState implements PersistentStateComponent<Applic
     public void setEnabled(boolean enabled) {
         isEnabled = enabled;
     }
+
+    public String getFailOnSeverity() {
+        StringBuilder failOnSeverityBuilder = new StringBuilder();
+        boolean isFirst = true;
+        if (shouldFailOnVeryHigh) {
+            failOnSeverityBuilder.append("VeryHigh");
+            isFirst = false;
+        }
+        isFirst = appendSeverityIfEnabled(failOnSeverityBuilder, shouldFailOnHigh, "High", isFirst);
+        isFirst = appendSeverityIfEnabled(failOnSeverityBuilder, shouldFailOnMedium, "Medium", isFirst);
+        isFirst = appendSeverityIfEnabled(failOnSeverityBuilder, shouldFailOnLow, "Low", isFirst);
+        appendSeverityIfEnabled(failOnSeverityBuilder, shouldFailOnInformational, "Informational", isFirst);
+        return failOnSeverityBuilder.toString();
+    }
+
+    private boolean appendSeverityIfEnabled(StringBuilder failOnSeverityBuilder, boolean shouldFail,
+                                            String severityAsString, boolean isFirst) {
+        if (shouldFail) {
+            if (!isFirst) {
+                failOnSeverityBuilder.append(",");
+            }
+            failOnSeverityBuilder.append(severityAsString);
+            return false;
+        }
+        return true;
+    }
 }
