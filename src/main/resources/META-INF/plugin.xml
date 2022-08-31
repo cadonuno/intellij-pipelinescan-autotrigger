@@ -15,7 +15,7 @@
         <applicationService
                 serviceImplementation="cadonuno.pipelinescanautotrigger.settings.ApplicationSettingsState"/>
         <applicationConfigurable
-                parentId="tools"
+                parentId="root"
                 instance="cadonuno.pipelinescanautotrigger.settings.ApplicationSettingsConfigurable"
                 id="org.intellij.sdk.settings.AppSettingsConfigurable"
                 displayName="Pipeline Scan Auto-Trigger"/>

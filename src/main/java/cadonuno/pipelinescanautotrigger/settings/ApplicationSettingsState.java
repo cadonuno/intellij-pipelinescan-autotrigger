@@ -22,6 +22,8 @@ public class ApplicationSettingsState implements PersistentStateComponent<Applic
     private String apiId = "";
     private String apiKey = "";
 
+    private boolean isEnabled = false;
+
     public static ApplicationSettingsState getInstance() {
         return ApplicationManager.getApplication().getService(ApplicationSettingsState.class);
     }
@@ -98,5 +100,13 @@ public class ApplicationSettingsState implements PersistentStateComponent<Applic
 
     public void setApiId(String apiId) {
         this.apiId = apiId;
+    }
+
+    public boolean isEnabled() {
+        return isEnabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        isEnabled = enabled;
     }
 }

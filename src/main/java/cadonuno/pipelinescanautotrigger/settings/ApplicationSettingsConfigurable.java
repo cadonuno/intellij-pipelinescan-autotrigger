@@ -41,6 +41,7 @@ public class ApplicationSettingsConfigurable implements Configurable {
         modified |= mySettingsComponent.isShouldFailOnMedium() != settings.isShouldFailOnMedium();
         modified |= mySettingsComponent.isShouldFailOnLow() != settings.isShouldFailOnLow();
         modified |= mySettingsComponent.isShouldFailOnInformational() != settings.isShouldFailOnInformational();
+        modified |= mySettingsComponent.isEnabled() != settings.isEnabled();
         return modified;
     }
 
@@ -55,6 +56,7 @@ public class ApplicationSettingsConfigurable implements Configurable {
         settings.setShouldFailOnMedium(mySettingsComponent.isShouldFailOnMedium());
         settings.setShouldFailOnLow(mySettingsComponent.isShouldFailOnLow());
         settings.setShouldFailOnInformational(mySettingsComponent.isShouldFailOnInformational());
+        settings.setEnabled(mySettingsComponent.isEnabled());
     }
 
     @Override
@@ -68,6 +70,7 @@ public class ApplicationSettingsConfigurable implements Configurable {
         mySettingsComponent.setShouldFailOnMedium(settings.isShouldFailOnMedium());
         mySettingsComponent.setShouldFailOnLow(settings.isShouldFailOnLow());
         mySettingsComponent.setShouldFailOnInformational(settings.isShouldFailOnInformational());
+        mySettingsComponent.setEnabled(settings.isEnabled());
     }
 
     @Override

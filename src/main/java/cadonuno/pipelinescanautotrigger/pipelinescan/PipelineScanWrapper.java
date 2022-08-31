@@ -3,7 +3,6 @@ package cadonuno.pipelinescanautotrigger.pipelinescan;
 
 import cadonuno.pipelinescanautotrigger.settings.ApplicationSettingsState;
 import cadonuno.pipelinescanautotrigger.util.ZipHandler;
-import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.ProjectManager;
 import org.apache.commons.io.FileUtils;
 
@@ -61,7 +60,7 @@ public class PipelineScanWrapper implements Closeable {
 
     public boolean hasFailedScan() {
         // TODO: read filtered_results.json for this
-        return false;
+        return true;
     }
 
     public void startScan(ApplicationSettingsState applicationSettingsState) {

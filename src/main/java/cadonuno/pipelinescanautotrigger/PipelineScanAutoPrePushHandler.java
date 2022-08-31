@@ -19,13 +19,14 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
 
     @Override
     public @NotNull Result handle(@NotNull List<PushInfo> list, @NotNull ProgressIndicator progressIndicator) {
-        if (list.isEmpty()) {
+        ApplicationSettingsState applicationSettingsState = ApplicationSettingsState.getInstance();
+        if (list.isEmpty() || !applicationSettingsState.isEnabled()) {
             return Result.OK;
         }
         boolean hasFailedScan = false;
         try (PipelineScanWrapper pipelineScanWrapper = PipelineScanWrapper.acquire()) {
             //call scan
-            pipelineScanWrapper.startScan(ApplicationSettingsState.getInstance());
+            pipelineScanWrapper.startScan(applicationSettingsState);
             //analyze filtered_results json
             //TODO: implement way of picking file and fail criteria
 
