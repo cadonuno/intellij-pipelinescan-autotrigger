@@ -1,6 +1,7 @@
 package cadonuno.pipelinescanautotrigger;
 
 import cadonuno.pipelinescanautotrigger.pipelinescan.PipelineScanWrapper;
+import cadonuno.pipelinescanautotrigger.settings.ApplicationSettingsState;
 import com.intellij.dvcs.push.PrePushHandler;
 import com.intellij.dvcs.push.PushInfo;
 import com.intellij.openapi.progress.ProgressIndicator;
@@ -21,14 +22,16 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
         if (list.isEmpty()) {
             return Result.OK;
         }
+        boolean hasFailedScan = false;
         try (PipelineScanWrapper pipelineScanWrapper = PipelineScanWrapper.acquire()) {
             //call scan
-
+            pipelineScanWrapper.startScan(ApplicationSettingsState.getInstance());
             //analyze filtered_results json
             //TODO: implement way of picking file and fail criteria
 
             // if filtered results is not empty:
-            return Result.ABORT_AND_CLOSE;
+            hasFailedScan = pipelineScanWrapper.hasFailedScan();
         }
+        return hasFailedScan ? Result.ABORT : Result.OK;
     }
 }

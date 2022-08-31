@@ -15,9 +15,10 @@ public class ApplicationSettingsComponent {
     private final JPanel myMainPanel;
 
     //TODO: add support for credentials file
+    //TODO: add "enable/disable" checkbox
 
     //Credentials settings:
-    private final JBTextField apiIdField = new JBTextField();
+    private final JBPasswordField apiIdField = new JBPasswordField();
     private final JBPasswordField apiKeyField = new JBPasswordField();
 
     //Scan Settings

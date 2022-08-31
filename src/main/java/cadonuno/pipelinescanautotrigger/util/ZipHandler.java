@@ -7,9 +7,9 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 public class ZipHandler {
-    public static void unzipFile(String fileName, String targetDirectory) {
-        try (InputStream fileInputStream = new FileInputStream(fileName)) {
-            ZipHandler.unzipFile(fileInputStream, new File(targetDirectory).toPath());
+    public static void unzipFile(String baseDirectory, String fileName, String targetDirectory) {
+        try (InputStream fileInputStream = new FileInputStream(new File(baseDirectory, fileName))) {
+            ZipHandler.unzipFile(fileInputStream, new File(baseDirectory, targetDirectory).toPath());
         } catch (FileNotFoundException e) {
             throw new RuntimeException(e);
         } catch (IOException e) {
