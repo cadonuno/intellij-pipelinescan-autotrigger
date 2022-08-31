@@ -22,9 +22,9 @@ public class PipelineScanAutoTriggerListener implements PrePushHandler {
         }
         //call scan
 
-        //analyze result fitered json
+        //analyze filtered_results json
         //TODO: implement way of picking file and fail criteria
 
-        throw new IllegalStateException("Testing plugin trigger");
+        return Result.ABORT_AND_CLOSE;
     }
 }
