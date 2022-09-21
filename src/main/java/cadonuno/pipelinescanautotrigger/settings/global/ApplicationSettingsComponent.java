@@ -1,23 +1,19 @@
-package cadonuno.pipelinescanautotrigger.settings;
+package cadonuno.pipelinescanautotrigger.settings.global;
 
 import com.intellij.ui.JBSplitter;
 import com.intellij.ui.components.JBCheckBox;
 import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBPasswordField;
-import com.intellij.ui.components.JBTextField;
 import com.intellij.util.ui.FormBuilder;
-import org.jetbrains.annotations.NotNull;
 
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 
 public class ApplicationSettingsComponent {
-    private final JPanel myMainPanel;
+    private final JPanel mainPanel;
     private final JPanel settingsPanel;
 
-    //TODO: make settings project-specific
     //TODO: add support for credentials file
-    //TODO: add support for baseline_file
 
     private final JBCheckBox isEnabledCheckBox = new JBCheckBox("Enabled");
     //Credentials settings:
@@ -25,7 +21,6 @@ public class ApplicationSettingsComponent {
     private final JBPasswordField apiKeyField = new JBPasswordField();
 
     //Scan Settings
-    private final JBTextField fileToScanField = new JBTextField();
     private final JBCheckBox veryHighSeverityCheckBox = new JBCheckBox("Very high");
     private final JBCheckBox highSeverityCheckBox = new JBCheckBox("High");
     private final JBCheckBox mediumSeverityCheckBox = new JBCheckBox("Medium");
@@ -47,11 +42,9 @@ public class ApplicationSettingsComponent {
         settingsPanel = FormBuilder.createFormBuilder()
                 .addLabeledComponent(new JBLabel("API credentials: "), credentialPanel, 1, true)
                 .addComponent(new JBSplitter())
-                .addLabeledComponent(new JBLabel("File to scan: "), fileToScanField, 1, false)
-                .addComponent(new JBSplitter())
                 .addLabeledComponent(new JBLabel("Severities to fail scan: "), severitiesToFailPanel, 1, true)
                 .getPanel();
-        myMainPanel = FormBuilder.createFormBuilder()
+        mainPanel = FormBuilder.createFormBuilder()
                 .addComponent(isEnabledCheckBox)
                 .addComponent(settingsPanel)
                 .addComponentFillVertically(new JPanel(), 0)
@@ -62,20 +55,11 @@ public class ApplicationSettingsComponent {
     }
 
     public JPanel getPanel() {
-        return myMainPanel;
+        return mainPanel;
     }
 
     public JComponent getPreferredFocusedComponent() {
-        return fileToScanField;
-    }
-
-    @NotNull
-    public String getFileToScanText() {
-        return fileToScanField.getText();
-    }
-
-    public void setFileToScanText(@NotNull String newText) {
-        fileToScanField.setText(newText);
+        return apiIdField;
     }
 
     public boolean isShouldFailOnVeryHigh() {

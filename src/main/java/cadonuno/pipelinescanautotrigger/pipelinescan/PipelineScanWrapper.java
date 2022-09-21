@@ -1,10 +1,10 @@
 package cadonuno.pipelinescanautotrigger.pipelinescan;
 
 
-import cadonuno.pipelinescanautotrigger.settings.ApplicationSettingsState;
+import cadonuno.pipelinescanautotrigger.settings.global.ApplicationSettingsState;
+import cadonuno.pipelinescanautotrigger.settings.project.ProjectSettingsState;
 import cadonuno.pipelinescanautotrigger.util.ZipHandler;
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.project.Project;
 import org.apache.commons.io.FileUtils;
 import org.jetbrains.annotations.NotNull;
 
@@ -19,9 +19,11 @@ public class PipelineScanWrapper implements Closeable {
     private static final int CONNECT_TIMEOUT = 1000;
     private static final int READ_TIMEOUT = 1000;
     private final String baseDirectory;
+    private final ProjectSettingsState projectSettingsState;
 
-    private PipelineScanWrapper(Project project) {
-        baseDirectory = project.getBasePath();
+    private PipelineScanWrapper(String baseDirectory, ProjectSettingsState projectSettingsState) {
+        this.baseDirectory = baseDirectory;
+        this.projectSettingsState = projectSettingsState;
         cleanupDirectory();
         File pipelineScannerZipLocation = new File(baseDirectory, ZIP_FILE);
         downloadZip(pipelineScannerZipLocation);
@@ -40,8 +42,9 @@ public class PipelineScanWrapper implements Closeable {
         }
     }
 
-    public static PipelineScanWrapper acquire(Project project) {
-        return new PipelineScanWrapper(project);
+    public static PipelineScanWrapper acquire(String baseDirectory,
+                                              ProjectSettingsState projectSettingsState) {
+        return new PipelineScanWrapper(baseDirectory, projectSettingsState);
     }
 
     @Override
@@ -61,31 +64,9 @@ public class PipelineScanWrapper implements Closeable {
     }
 
     public int startScan(ApplicationSettingsState applicationSettingsState) {
-        try {
-            Process process = Runtime.getRuntime().exec(buildCommand(
-                    new File(new File(baseDirectory, VERACODE_PIPELINE_SCAN_DIRECTORY), "pipeline-scan.jar"),
-                    applicationSettingsState));
-            int returnCode = process.waitFor();
-            logProcessOutput(process);
-            return returnCode;
-        } catch (IOException | InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void logProcessOutput(Process process) throws IOException {
-        try (InputStreamReader inputStreamReader = new InputStreamReader(process.getInputStream());
-             BufferedReader input = new BufferedReader(inputStreamReader)) {
-
-            String line;
-
-            StringBuilder outputReader = new StringBuilder();
-            while ((line = input.readLine()) != null) {
-                outputReader.append(line).append('\n');
-            }
-            logger.info("PipelineScan output: ");
-            logger.info(outputReader.toString());
-        }
+        return OsCommandRunner.runCommand(
+                buildCommand(new File(new File(baseDirectory, VERACODE_PIPELINE_SCAN_DIRECTORY), "pipeline-scan.jar"),
+                        applicationSettingsState));
     }
 
     @NotNull
@@ -95,11 +76,18 @@ public class PipelineScanWrapper implements Closeable {
         appendParameter(commandBuilder, "veracode_api_key", applicationSettingsState.getApiKey());
         appendParameter(commandBuilder, "fail_on_severity", applicationSettingsState.getFailOnSeverity());
         appendParameter(commandBuilder, "file",
-                new File(baseDirectory, applicationSettingsState.getFileToScan()).toString());
+                new File(baseDirectory, projectSettingsState.getFileToScan()).toString());
         appendParameter(commandBuilder, "json_output_file",
-                new File(baseDirectory, applicationSettingsState.getFileToScan()).toString());
+                new File(baseDirectory, "pipeline_results.json").toString());
         appendParameter(commandBuilder, "filtered_json_output_file",
-                new File(baseDirectory, applicationSettingsState.getFileToScan()).toString());
+                new File(baseDirectory, "filtered_pipeline_results.json").toString());
+        if (projectSettingsState.getBaselineFile() != null) {
+            String trimmedBaselineFile = projectSettingsState.getBaselineFile().trim();
+            if (!trimmedBaselineFile.equals("")) {
+                appendParameter(commandBuilder, "filtered_json_output_file",
+                        new File(baseDirectory, trimmedBaselineFile).toString());
+            }
+        }
         logger.info(commandBuilder.toString());
         return commandBuilder.toString();
     }

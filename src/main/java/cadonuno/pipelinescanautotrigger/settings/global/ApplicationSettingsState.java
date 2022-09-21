@@ -1,4 +1,4 @@
-package cadonuno.pipelinescanautotrigger.settings;
+package cadonuno.pipelinescanautotrigger.settings.global;
 
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.PersistentStateComponent;
@@ -10,9 +10,8 @@ import org.jetbrains.annotations.Nullable;
 
 
 @State(name = "cadonuno.pipelinescanautotrigger.settings.PipelineScanAutoTriggerConfigurationService",
-        storages = @Storage("SdkSettingsPlugin.xml"))
+        storages = @Storage("PipelineAutoTrigger.xml"))
 public class ApplicationSettingsState implements PersistentStateComponent<ApplicationSettingsState> {
-    private String fileToScan = "./target/*";
     private boolean shouldFailOnVeryHigh = true;
     private boolean shouldFailOnHigh = true;
     private boolean shouldFailOnMedium = false;
@@ -36,14 +35,6 @@ public class ApplicationSettingsState implements PersistentStateComponent<Applic
     @Override
     public void loadState(@NotNull ApplicationSettingsState state) {
         XmlSerializerUtil.copyBean(state, this);
-    }
-
-    public String getFileToScan() {
-        return fileToScan;
-    }
-
-    public void setFileToScan(String fileToScan) {
-        this.fileToScan = fileToScan;
     }
 
     public boolean isShouldFailOnInformational() {

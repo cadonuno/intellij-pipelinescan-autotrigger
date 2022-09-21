@@ -12,12 +12,33 @@
     <extensions defaultExtensionNs="com.intellij">
         <prePushHandler
                 implementation="cadonuno.pipelinescanautotrigger.PipelineScanAutoPrePushHandler"/>
-        <applicationService
-                serviceImplementation="cadonuno.pipelinescanautotrigger.settings.ApplicationSettingsState"/>
+
         <applicationConfigurable
                 parentId="root"
-                instance="cadonuno.pipelinescanautotrigger.settings.ApplicationSettingsConfigurable"
-                id="org.intellij.sdk.settings.AppSettingsConfigurable"
+                instance="cadonuno.pipelinescanautotrigger.settings.base.BaseSettingsConfigurable"
+                id="cadonuno.pipelinescanautotrigger.settings.base.BaseSettings"
                 displayName="Pipeline Scan Auto-Trigger"/>
+
+        <applicationService
+                serviceImplementation="cadonuno.pipelinescanautotrigger.settings.global.ApplicationSettingsState"/>
+        <applicationConfigurable
+                parentId="cadonuno.pipelinescanautotrigger.settings.base.BaseSettings"
+                instance="cadonuno.pipelinescanautotrigger.settings.global.ApplicationSettingsConfigurable"
+                id="cadonuno.pipelinescanautotrigger.settings.global.ApplicationSettingsConfigurable"
+                displayName="Global Settings"/>
+
+        <projectService
+                serviceImplementation="cadonuno.pipelinescanautotrigger.settings.project.ProjectSettingsState"/>
+        <projectConfigurable
+                parentId="cadonuno.pipelinescanautotrigger.settings.base.BaseSettings"
+                instance="cadonuno.pipelinescanautotrigger.settings.project.ProjectSettingsConfigurable"
+                id="cadonuno.pipelinescanautotrigger.settings.project.ProjectSettingsConfigurable"
+                nonDefaultProject="true"
+                displayName="Project Settings"/>
     </extensions>
+    <project-components>
+        <component>
+            <implementation-class>cadonuno.pipelinescanautotrigger.settings.project.ProjectSettingsComponent</implementation-class>
+        </component>
+    </project-components>
 </idea-plugin>
