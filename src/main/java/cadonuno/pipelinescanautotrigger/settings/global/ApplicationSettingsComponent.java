@@ -11,11 +11,10 @@ import javax.swing.JPanel;
 
 public class ApplicationSettingsComponent {
     private final JPanel mainPanel;
-    private final JPanel settingsPanel;
 
     //TODO: add support for credentials file
+    //TODO: find out why the first field shows up half-way down
 
-    private final JBCheckBox isEnabledCheckBox = new JBCheckBox("Enabled");
     //Credentials settings:
     private final JBPasswordField apiIdField = new JBPasswordField();
     private final JBPasswordField apiKeyField = new JBPasswordField();
@@ -39,19 +38,11 @@ public class ApplicationSettingsComponent {
                 .addComponent(lowSeverityCheckBox)
                 .addComponent(informationalSeverityCheckBox)
                 .getPanel();
-        settingsPanel = FormBuilder.createFormBuilder()
-                .addLabeledComponent(new JBLabel("API credentials: "), credentialPanel, 1, true)
+        mainPanel = FormBuilder.createFormBuilder()
+                .addLabeledComponent(new JBLabel("API credentials: "), credentialPanel, 0, true)
                 .addComponent(new JBSplitter())
                 .addLabeledComponent(new JBLabel("Severities to fail scan: "), severitiesToFailPanel, 1, true)
                 .getPanel();
-        mainPanel = FormBuilder.createFormBuilder()
-                .addComponent(isEnabledCheckBox)
-                .addComponent(settingsPanel)
-                .addComponentFillVertically(new JPanel(), 0)
-                .getPanel();
-        isEnabledCheckBox.addChangeListener(e -> {
-            settingsPanel.setVisible(isEnabledCheckBox.isSelected());
-        });
     }
 
     public JPanel getPanel() {
@@ -116,14 +107,5 @@ public class ApplicationSettingsComponent {
 
     public void setApiKeyText(String apiKey) {
         apiKeyField.setText(apiKey);
-    }
-
-    public boolean isEnabled() {
-        return isEnabledCheckBox.isSelected();
-    }
-
-    public void setEnabled(boolean isEnabled) {
-        isEnabledCheckBox.setSelected(isEnabled);
-        settingsPanel.setVisible(isEnabled);
     }
 }

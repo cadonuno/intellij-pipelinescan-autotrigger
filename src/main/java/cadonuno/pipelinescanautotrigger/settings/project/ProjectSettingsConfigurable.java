@@ -41,15 +41,8 @@ public class ProjectSettingsConfigurable implements Configurable {
         boolean modified = !projectSettingsComponent.getFileToScanText().equals(settings.getFileToScan());;
         modified |= projectSettingsComponent.getBuildCommandText().equals(settings.getBuildCommand());
         modified |= projectSettingsComponent.getBaselineFileText().equals(settings.getBaselineFile());
+        modified |= projectSettingsComponent.isEnabled() != settings.isEnabled();
         return modified;
-    }
-
-    @Override
-    public void reset() {
-        ProjectSettingsState settings = ProjectSettingsState.getInstance(project);
-        projectSettingsComponent.setFileToScanText(settings.getFileToScan());
-        projectSettingsComponent.setBuildCommandText(settings.getBuildCommand());
-        projectSettingsComponent.setBaselineFileText(settings.getBaselineFile());
     }
 
     @Override
@@ -58,6 +51,16 @@ public class ProjectSettingsConfigurable implements Configurable {
         settings.setFileToScan(projectSettingsComponent.getFileToScanText());
         settings.setBuildCommand(projectSettingsComponent.getBuildCommandText());
         settings.setBaselineFile(projectSettingsComponent.getBaselineFileText());
+        settings.setEnabled(projectSettingsComponent.isEnabled());
+    }
+
+    @Override
+    public void reset() {
+        ProjectSettingsState settings = ProjectSettingsState.getInstance(project);
+        projectSettingsComponent.setFileToScanText(settings.getFileToScan());
+        projectSettingsComponent.setBuildCommandText(settings.getBuildCommand());
+        projectSettingsComponent.setBaselineFileText(settings.getBaselineFile());
+        projectSettingsComponent.setEnabled(settings.isEnabled());
     }
 
     @Override

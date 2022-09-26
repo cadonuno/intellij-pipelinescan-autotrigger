@@ -1,6 +1,7 @@
 package cadonuno.pipelinescanautotrigger.pipelinescan;
 
 
+import cadonuno.pipelinescanautotrigger.PipelineScanAutoPrePushHandler;
 import cadonuno.pipelinescanautotrigger.settings.global.ApplicationSettingsState;
 import cadonuno.pipelinescanautotrigger.settings.project.ProjectSettingsState;
 import cadonuno.pipelinescanautotrigger.util.ZipHandler;
@@ -63,10 +64,11 @@ public class PipelineScanWrapper implements Closeable {
         }
     }
 
-    public int startScan(ApplicationSettingsState applicationSettingsState) {
-        return OsCommandRunner.runCommand(
+    public int startScan(ApplicationSettingsState applicationSettingsState,
+                         PipelineScanAutoPrePushHandler pipelineScanAutoPrePushHandler) {
+        return OsCommandRunner.runCommand("pipeline scan",
                 buildCommand(new File(new File(baseDirectory, VERACODE_PIPELINE_SCAN_DIRECTORY), "pipeline-scan.jar"),
-                        applicationSettingsState));
+                        applicationSettingsState), pipelineScanAutoPrePushHandler);
     }
 
     @NotNull
