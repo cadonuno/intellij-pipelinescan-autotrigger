@@ -1,5 +1,6 @@
 package cadonuno.pipelinescanautotrigger.settings.global;
 
+import cadonuno.pipelinescanautotrigger.settings.credentials.CredentialsTypeEnum;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.PersistentStateComponent;
 import com.intellij.openapi.components.State;
@@ -20,6 +21,9 @@ public class ApplicationSettingsState implements PersistentStateComponent<Applic
 
     private String apiId = "";
     private String apiKey = "";
+
+    private CredentialsTypeEnum credentialsType = CredentialsTypeEnum.LiteralCredentials;
+    private String credentialsProfileName = "default";
 
     public static ApplicationSettingsState getInstance() {
         return ApplicationManager.getApplication().getService(ApplicationSettingsState.class);
@@ -115,5 +119,21 @@ public class ApplicationSettingsState implements PersistentStateComponent<Applic
             return false;
         }
         return true;
+    }
+
+    public CredentialsTypeEnum getCredentialsType() {
+        return credentialsType;
+    }
+
+    public void setCredentialsType(CredentialsTypeEnum credentialsType) {
+        this.credentialsType = credentialsType;
+    }
+
+    public String getCredentialsProfileName() {
+        return credentialsProfileName;
+    }
+
+    public void setCredentialsProfileName(String credentialsProfileName) {
+        this.credentialsProfileName = credentialsProfileName;
     }
 }

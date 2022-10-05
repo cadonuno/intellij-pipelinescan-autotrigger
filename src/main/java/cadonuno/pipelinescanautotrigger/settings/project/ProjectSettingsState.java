@@ -13,11 +13,9 @@ import org.jetbrains.annotations.Nullable;
         storages = {@Storage("PipelineAutoTrigger-project.xml")}
 )
 public class ProjectSettingsState implements PersistentStateComponent<ProjectSettingsState> {
-
-    //TODO: add more generic commands here
     //TODO: switch most thrown exceptions to popups
     private String fileToScan = "./target/*";
-    private String buildCommand = "mvn clean package";
+    private String buildCommand = "\"%MAVEN_HOME%\\bin\\mvn.cmd\" -f \"**path_to_project_pom**\" clean install";
     private String baselineFile = "results.json";
 
     private boolean isEnabled = false;

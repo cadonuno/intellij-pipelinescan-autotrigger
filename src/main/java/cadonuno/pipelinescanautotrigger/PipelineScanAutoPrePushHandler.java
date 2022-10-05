@@ -105,10 +105,13 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
             timer.stop();
         }
         if (scanReturnCode != 0) {
-            return showConfirmationDialog(getScanFinishedConfirmationMessage(scanReturnCode) + "!" +
-                    "\nContinue pushing?")
-                    ? Result.OK
-                    : Result.ABORT;
+            boolean shouldContinue = showConfirmationDialog(getScanFinishedConfirmationMessage(scanReturnCode) + "!" +
+                    "\nContinue pushing?");
+            if (shouldContinue) {
+                return Result.OK;
+            }
+            //TODO: load results into the UI to allow for navigation
+            return Result.ABORT;
         }
         return Result.OK;
     }

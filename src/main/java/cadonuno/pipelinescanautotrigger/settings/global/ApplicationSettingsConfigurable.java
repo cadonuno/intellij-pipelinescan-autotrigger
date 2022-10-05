@@ -40,6 +40,8 @@ public class ApplicationSettingsConfigurable implements Configurable {
         modified |= applicationSettingsComponent.isShouldFailOnMedium() != settings.isShouldFailOnMedium();
         modified |= applicationSettingsComponent.isShouldFailOnLow() != settings.isShouldFailOnLow();
         modified |= applicationSettingsComponent.isShouldFailOnInformational() != settings.isShouldFailOnInformational();
+        modified |= applicationSettingsComponent.getCredentialsType() != settings.getCredentialsType();
+        modified |= !applicationSettingsComponent.getCredentialsProfileName().equals(settings.getCredentialsProfileName());
         return modified;
     }
 
@@ -53,6 +55,8 @@ public class ApplicationSettingsConfigurable implements Configurable {
         settings.setShouldFailOnMedium(applicationSettingsComponent.isShouldFailOnMedium());
         settings.setShouldFailOnLow(applicationSettingsComponent.isShouldFailOnLow());
         settings.setShouldFailOnInformational(applicationSettingsComponent.isShouldFailOnInformational());
+        settings.setCredentialsType(applicationSettingsComponent.getCredentialsType());
+        settings.setCredentialsProfileName(applicationSettingsComponent.getCredentialsProfileName());
     }
 
     @Override
@@ -65,6 +69,8 @@ public class ApplicationSettingsConfigurable implements Configurable {
         applicationSettingsComponent.setShouldFailOnMedium(settings.isShouldFailOnMedium());
         applicationSettingsComponent.setShouldFailOnLow(settings.isShouldFailOnLow());
         applicationSettingsComponent.setShouldFailOnInformational(settings.isShouldFailOnInformational());
+        applicationSettingsComponent.setCredentialsType(settings.getCredentialsType());
+        applicationSettingsComponent.setCredentialsProfileName(settings.getCredentialsProfileName());
     }
 
     @Override
