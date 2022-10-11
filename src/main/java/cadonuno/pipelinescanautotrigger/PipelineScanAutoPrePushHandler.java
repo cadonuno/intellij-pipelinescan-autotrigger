@@ -95,6 +95,7 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
 
     @NotNull
     private Result runScan(ApplicationSettingsState applicationSettingsState) {
+        //TODO: add option to trigger this manually
         maxFraction = UPLOADING_FILES_MAX_FRACTION;
         setCurrentFraction(BUILD_STEP_MAX_FRACTION);
 
