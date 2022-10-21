@@ -75,7 +75,7 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
 
     @Override
     public @NotNull Result handle(@NotNull List<PushInfo> list, @NotNull ProgressIndicator progressIndicator) {
-        if (project == null) {
+        if (project == null || !projectSettingsState.isEnabled()) {
             return Result.OK;
         }
         setupScan(progressIndicator);
