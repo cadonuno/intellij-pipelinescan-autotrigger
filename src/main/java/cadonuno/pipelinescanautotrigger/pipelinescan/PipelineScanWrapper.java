@@ -16,7 +16,7 @@ import java.io.*;
 import java.net.URL;
 
 public class PipelineScanWrapper implements Closeable {
-    private static final Logger logger = Logger.getInstance(PipelineScanWrapper.class);
+    private static final Logger LOG = Logger.getInstance(PipelineScanWrapper.class);
     private static final String FILE_URL = "https://downloads.veracode.com/securityscan/pipeline-scan-LATEST.zip";
     private static final String VERACODE_PIPELINE_SCAN_DIRECTORY = "Veracode-pipelinescan";
     private static final String ZIP_FILE = VERACODE_PIPELINE_SCAN_DIRECTORY + "/pipeline-scan-LATEST.zip";
@@ -28,7 +28,7 @@ public class PipelineScanWrapper implements Closeable {
     private PipelineScanWrapper(String baseDirectory, ProjectSettingsState projectSettingsState) {
         this.baseDirectory = baseDirectory;
         this.projectSettingsState = projectSettingsState;
-        cleanupDirectory();
+        cleanupDirectory(baseDirectory);
         File pipelineScannerZipLocation = new File(baseDirectory, ZIP_FILE);
         downloadZip(pipelineScannerZipLocation);
         ZipHandler.unzipFile(pipelineScannerZipLocation);
@@ -53,11 +53,10 @@ public class PipelineScanWrapper implements Closeable {
 
     @Override
     public void close() {
-        //TODO: LAST THING TO DO: enable cleanup
-        //cleanupDirectory();
+        cleanupDirectory(baseDirectory);
     }
 
-    private void cleanupDirectory() {
+    public static void cleanupDirectory(String baseDirectory) {
         File pipelineScanDirectory = new File(baseDirectory, VERACODE_PIPELINE_SCAN_DIRECTORY);
         if (pipelineScanDirectory.exists()) {
             try {
@@ -81,17 +80,17 @@ public class PipelineScanWrapper implements Closeable {
         addCredentialsParameters(applicationSettingsState, commandBuilder);
         appendParameter(commandBuilder, "fail_on_severity", applicationSettingsState.getFailOnSeverity());
         appendParameter(commandBuilder, "file",
-                new File(baseDirectory, projectSettingsState.getFileToScan()).toString());
-        appendParameter(commandBuilder, "json_output_file", "pipeline_results.json");
-        appendParameter(commandBuilder, "filtered_json_output_file", "filtered_pipeline_results.json");
+                new File(baseDirectory, projectSettingsState.getFileToScan()).getAbsolutePath());
+        appendParameter(commandBuilder, "json_output_file", PipelineScanAutoPrePushHandler.PIPELINE_RESULTS_JSON);
+        appendParameter(commandBuilder, "filtered_json_output_file", PipelineScanAutoPrePushHandler.FILTERED_PIPELINE_RESULTS_JSON);
         if (projectSettingsState.getBaselineFile() != null) {
             String trimmedBaselineFile = projectSettingsState.getBaselineFile().trim();
             if (!trimmedBaselineFile.equals("")) {
-                appendParameter(commandBuilder, "filtered_json_output_file",
+                appendParameter(commandBuilder, "baseline_file",
                         new File(baseDirectory, trimmedBaselineFile).toString());
             }
         }
-        logger.info(commandBuilder.toString());
+        LOG.info(commandBuilder.toString());
         return commandBuilder.toString();
     }
 

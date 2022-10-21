@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class OsCommandRunner {
-    private static final Logger logger = Logger.getInstance(OsCommandRunner.class);
+    private static final Logger LOG = Logger.getInstance(OsCommandRunner.class);
 
     public static int runCommand(String title, String commandToRun,
                                  PipelineScanAutoPrePushHandler pipelineScanAutoPrePushHandler) {
@@ -18,8 +18,8 @@ public class OsCommandRunner {
         ProcessBuilder processBuilder = new ProcessBuilder(convertCommandToArray(commandToRun))
                 .redirectErrorStream(true);
         try {
-            logger.info("Running " + title);
-            logger.debug(commandToRun);
+            LOG.info("Running " + title);
+            LOG.debug(commandToRun);
             process = processBuilder.start();
             try (BufferedReader bufferedReader = new BufferedReader(
                     new InputStreamReader(process.getInputStream()))) {
@@ -37,14 +37,14 @@ public class OsCommandRunner {
 
     private static void logLine(PipelineScanAutoPrePushHandler pipelineScanAutoPrePushHandler, String line) {
         if (line != null) {
-            logger.info(line);
+            LOG.info(line);
             pipelineScanAutoPrePushHandler.updateProgressIndicatorSecondaryMessage(line);
         }
     }
 
     private static String[] convertCommandToArray(String commandToRun) {
         String[] splitBySpaces = commandToRun.split(" ");
-        logger.info("Building command: " + commandToRun);
+        LOG.info("Building command: " + commandToRun);
         List<String> parametersAsList = new ArrayList<>();
         String buffer = "";
         for (String element : splitBySpaces) {
@@ -66,7 +66,7 @@ public class OsCommandRunner {
     }
 
     private static void addToList(List<String> parametersAsList, String element) {
-        logger.info("Adding to list: " + element);
+        LOG.info("Adding to list: " + element);
         parametersAsList.add(element);
     }
 }

@@ -1,21 +1,27 @@
 package cadonuno.pipelinescanautotrigger;
 
 import cadonuno.pipelinescanautotrigger.pipelinescan.OsCommandRunner;
+import cadonuno.pipelinescanautotrigger.pipelinescan.PipelineScanFinding;
 import cadonuno.pipelinescanautotrigger.pipelinescan.PipelineScanWrapper;
 import cadonuno.pipelinescanautotrigger.settings.global.ApplicationSettingsState;
 import cadonuno.pipelinescanautotrigger.settings.project.ProjectSettingsState;
+import cadonuno.pipelinescanautotrigger.ui.ScanResultsWindow;
 import com.intellij.dvcs.push.PrePushHandler;
 import com.intellij.dvcs.push.PushInfo;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.project.Project;
+import net.minidev.json.JSONArray;
+import net.minidev.json.JSONObject;
+import net.minidev.json.parser.JSONParser;
+import net.minidev.json.parser.ParseException;
 import org.jetbrains.annotations.Nls;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.JOptionPane;
 import javax.swing.Timer;
-import java.util.List;
-import java.util.Optional;
+import java.io.*;
+import java.util.*;
 
 public class PipelineScanAutoPrePushHandler implements PrePushHandler {
     private static final String VERACODE_PIPELINE_SCAN = "Veracode Pipeline Scan - ";
@@ -28,6 +34,16 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
     private static final double UPLOADING_FILES_MAX_FRACTION = 0.63d;
     private static final double WAITING_FOR_RESULTS_MAX_FRACTION = 0.99d;
     private static final double FULL_PROGRESS_BAR = 1.0d;
+    public static final String PIPELINE_RESULTS_JSON = "pipeline_results.json";
+    public static final String FILTERED_PIPELINE_RESULTS_JSON = "filtered_pipeline_results.json";
+    private static final Map<Integer, String> SEVERITY_MAP = new HashMap<>(){{
+        put(0, "Informational");
+        put(1, "Very low");
+        put(2, "Low");
+        put(3, "Medium");
+        put(4, "High");
+        put(5, "Very High");
+    }};
     private String runningMessage = INITIAL_MESSAGE;
     private String messageQueue = "";
 
@@ -43,7 +59,10 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
     private Timer timer;
     private String baseDirectory;
 
+    private static final Logger LOG = Logger.getInstance(PipelineScanAutoPrePushHandler.class);
+
     public PipelineScanAutoPrePushHandler(Project project) {
+        //TODO: check if we are always getting right project (seems like we aren't)
         this.project = project;
         this.projectSettingsState = project.getService(ProjectSettingsState.class);
     }
@@ -70,6 +89,7 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
     }
 
     private void setupScan(@NotNull ProgressIndicator progressIndicator) {
+        PipelineScanWrapper.cleanupDirectory(baseDirectory);
         this.progressIndicator = progressIndicator;
         messageQueue = "";
         setCurrentFraction(.0d);
@@ -102,6 +122,7 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
         int scanReturnCode = runPipelineScan(applicationSettingsState);
         maxFraction = FULL_PROGRESS_BAR;
         setCurrentFraction(FULL_PROGRESS_BAR);
+        readResults();
         if (timer.isRunning()) {
             timer.stop();
         }
@@ -111,10 +132,61 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
             if (shouldContinue) {
                 return Result.OK;
             }
-            //TODO: load results into the UI to allow for navigation
             return Result.ABORT;
         }
         return Result.OK;
+    }
+
+    private void readResults() {
+        setMessage("Reading results");
+        ScanResultsWindow.updateResults(project,
+                getAllFindings(PIPELINE_RESULTS_JSON),
+                getAllFindings(FILTERED_PIPELINE_RESULTS_JSON));
+    }
+
+    @NotNull
+    private List<PipelineScanFinding> getAllFindings(String resultsFileName) {
+        List<PipelineScanFinding> allFindings = new ArrayList<>();
+        File resultsFile = new File(resultsFileName);
+        if (!resultsFile.exists()) {
+            return allFindings;
+        }
+        try (FileReader fileReader = new FileReader(resultsFile.getAbsolutePath());) {
+            JSONParser parser = new JSONParser(4032);
+            JSONObject outerJson = (JSONObject) parser.parse(fileReader);
+            JSONArray findingsArray = (JSONArray) outerJson.get("findings");
+            for (Object arrayElement : findingsArray) {
+                JSONObject currentFinding = (JSONObject) arrayElement;
+                JSONObject sourceFileElement = (JSONObject) ((JSONObject) currentFinding.get("files")).get("source_file");
+                PipelineScanFinding finding = new PipelineScanFinding(
+                        getElementAsLong(currentFinding, "issue_id"),
+                        SEVERITY_MAP.get((int) getElementAsLong(currentFinding, "severity")),
+                        getElementAsString(currentFinding, "cwe_id"),
+                        getElementAsString(currentFinding, "issue_type"),
+                        getElementAsString(currentFinding, "display_text"),
+                        getElementAsString(sourceFileElement, "file"),
+                        getElementAsLong(sourceFileElement, "line"));
+                allFindings.add(finding);
+            }
+        } catch (IOException | ParseException e) {
+            throw new RuntimeException(e);
+        } finally {
+            resultsFile.delete();
+        }
+        return allFindings;
+    }
+
+    private String getElementAsString(JSONObject currentFinding, String elementName) {
+        return (String) Optional.ofNullable(currentFinding.get(elementName))
+                .filter(elementValue -> elementValue instanceof String)
+                .orElse(null);
+    }
+
+    private long getElementAsLong(JSONObject currentFinding, String elementName) {
+        LOG.info(currentFinding.get(elementName).getClass().getCanonicalName());
+        return (long) Optional.ofNullable(currentFinding.get(elementName))
+                .filter(elementValue -> elementValue instanceof Long)
+                .orElse(0);
     }
 
     private void setupTimer() {
@@ -180,7 +252,7 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
     private void setCurrentFraction(double valueToSet) {
         progressIndicator.checkCanceled();
         currentFraction = valueToSet;
-        progressIndicator.setFraction(currentFraction*2);
+        progressIndicator.setFraction(currentFraction * 2);
         updateProgressIndicator();
     }
 
