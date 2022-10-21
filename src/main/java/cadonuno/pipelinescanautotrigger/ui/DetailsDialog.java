@@ -27,11 +27,11 @@ public class DetailsDialog extends JDialog {
         buttonPanel.setLayout(new GridLayout(1,3));
 
         JEditorPane editorPane = new JEditorPane("text/html", detailsHtml);
+        editorPane.setEditable(false);
         JPanel basePanel = FormBuilder.createFormBuilder()
                 .addComponent(editorPane)
                 .addComponent(new JBSplitter())
                 .addComponent(buttonPanel)
-                .addComponentFillVertically(new JPanel(), 0)
                 .getPanel();
         editorPane.setMaximumSize(MAXIMUM_SIZE);
         editorPane.setPreferredSize(PREFERED_SIZE);
