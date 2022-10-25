@@ -151,7 +151,7 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
         if (!resultsFile.exists()) {
             return allFindings;
         }
-        try (FileReader fileReader = new FileReader(resultsFile.getAbsolutePath());) {
+        try (FileReader fileReader = new FileReader(resultsFile.getAbsolutePath())) {
             JSONParser parser = new JSONParser(4032);
             JSONObject outerJson = (JSONObject) parser.parse(fileReader);
             JSONArray findingsArray = (JSONArray) outerJson.get("findings");
@@ -206,6 +206,8 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
     }
 
     private String getScanFinishedConfirmationMessage(int scanReturnCode) {
+        // TODO: differentiate between having NEW issues or ALL issues (use existence of baseline file to determine)
+        // TODO: if the scan fails, list the criteria that were set to put emphasis on what is making it fail
         return scanReturnCode > 0
                 ? "Pipeline scan detected " + scanReturnCode + " issues"
                 : "Pipeline scan failed with return code of " + scanReturnCode;
