@@ -23,7 +23,7 @@ public final class PipelineScanFinding {
     }
 
     public Object[] getAsTableRow() {
-        return new Object[] { getIssueId(), severity, cweId, cweName, "Show Details", getFileName(), getLineNumber()};
+        return new Object[]{getIssueId(), severity, cweId, cweName, "Show Details", getFileName(), getLineNumber()};
     }
 
     @Override

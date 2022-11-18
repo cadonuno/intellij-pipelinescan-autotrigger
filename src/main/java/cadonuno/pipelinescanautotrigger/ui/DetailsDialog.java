@@ -10,7 +10,7 @@ import java.awt.*;
 public class DetailsDialog extends JDialog {
 
     private static final Dimension MAXIMUM_SIZE = new Dimension(400, 460);
-    private static final Dimension PREFERED_SIZE = new Dimension(400, 600);
+    private static final Dimension PREFERRED_SIZE = new Dimension(400, 600);
 
     public DetailsDialog(String detailsHtml) {
         super();
@@ -34,7 +34,7 @@ public class DetailsDialog extends JDialog {
                 .addComponent(buttonPanel)
                 .getPanel();
         editorPane.setMaximumSize(MAXIMUM_SIZE);
-        editorPane.setPreferredSize(PREFERED_SIZE);
+        editorPane.setPreferredSize(PREFERRED_SIZE);
         basePanel.setMaximumSize(MAXIMUM_SIZE);
         this.getContentPane().add(basePanel);
         this.setMaximumSize(MAXIMUM_SIZE);

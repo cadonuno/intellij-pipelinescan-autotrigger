@@ -5,11 +5,13 @@ import cadonuno.pipelinescanautotrigger.pipelinescan.PipelineScanFinding;
 import cadonuno.pipelinescanautotrigger.pipelinescan.PipelineScanWrapper;
 import cadonuno.pipelinescanautotrigger.settings.global.ApplicationSettingsState;
 import cadonuno.pipelinescanautotrigger.settings.project.ProjectSettingsState;
-import cadonuno.pipelinescanautotrigger.ui.ScanResultsWindow;
+import cadonuno.pipelinescanautotrigger.ui.PipelineScanResultsBarToolWindowFactory;
 import com.intellij.dvcs.push.PrePushHandler;
 import com.intellij.dvcs.push.PushInfo;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.progress.ProcessCanceledException;
 import com.intellij.openapi.progress.ProgressIndicator;
+import com.intellij.openapi.progress.util.SmoothProgressAdapter;
 import com.intellij.openapi.project.Project;
 import net.minidev.json.JSONArray;
 import net.minidev.json.JSONObject;
@@ -36,7 +38,7 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
     private static final double FULL_PROGRESS_BAR = 1.0d;
     public static final String PIPELINE_RESULTS_JSON = "pipeline_results.json";
     public static final String FILTERED_PIPELINE_RESULTS_JSON = "filtered_pipeline_results.json";
-    private static final Map<Integer, String> SEVERITY_MAP = new HashMap<>(){{
+    private static final Map<Integer, String> SEVERITY_MAP = new HashMap<>() {{
         put(0, "Informational");
         put(1, "Very low");
         put(2, "Low");
@@ -61,10 +63,18 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
 
     private static final Logger LOG = Logger.getInstance(PipelineScanAutoPrePushHandler.class);
 
+    private static final Map<String, PipelineScanAutoPrePushHandler> projectToHandlerMap = new HashMap<>();
+    private double progressMultiplier;
+
     public PipelineScanAutoPrePushHandler(Project project) {
-        //TODO: check if we are always getting right project (seems like we aren't)
+        LOG.info("Creating handler for project: " + project.getProjectFilePath());
         this.project = project;
         this.projectSettingsState = project.getService(ProjectSettingsState.class);
+        projectToHandlerMap.put(project.getProjectFilePath(), this);
+    }
+
+    public static Optional<PipelineScanAutoPrePushHandler> getProjectHandler(Project project) {
+        return Optional.ofNullable(projectToHandlerMap.get(project.getProjectFilePath()));
     }
 
     @Override
@@ -75,9 +85,16 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
 
     @Override
     public @NotNull Result handle(@NotNull List<PushInfo> list, @NotNull ProgressIndicator progressIndicator) {
-        if (project == null || !projectSettingsState.isEnabled()) {
+        return startScan(progressIndicator);
+    }
+
+    @NotNull
+    public Result startScan(@NotNull ProgressIndicator progressIndicator) {
+        if (project == null || !isScanEnabled()) {
             return Result.OK;
         }
+        progressMultiplier = progressIndicator instanceof SmoothProgressAdapter
+                ? 1 : 2;
         setupScan(progressIndicator);
         try {
             return buildApplicationIfNecessary()
@@ -86,6 +103,10 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
         } finally {
             timer.stop();
         }
+    }
+
+    public boolean isScanEnabled() {
+        return projectSettingsState.isEnabled();
     }
 
     private void setupScan(@NotNull ProgressIndicator progressIndicator) {
@@ -115,7 +136,6 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
 
     @NotNull
     private Result runScan(ApplicationSettingsState applicationSettingsState) {
-        //TODO: add option to trigger this manually
         maxFraction = UPLOADING_FILES_MAX_FRACTION;
         setCurrentFraction(BUILD_STEP_MAX_FRACTION);
 
@@ -127,8 +147,8 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
             timer.stop();
         }
         if (scanReturnCode != 0) {
-            boolean shouldContinue = showConfirmationDialog(getScanFinishedConfirmationMessage(scanReturnCode) + "!" +
-                    "\nContinue pushing?");
+            boolean shouldContinue = !getConfirmationDialogOutput(getScanFinishedConfirmationMessage(scanReturnCode) + "!" +
+                    "\nAbort push?");
             if (shouldContinue) {
                 return Result.OK;
             }
@@ -139,9 +159,10 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
 
     private void readResults() {
         setMessage("Reading results");
-        ScanResultsWindow.updateResults(project,
-                getAllFindings(PIPELINE_RESULTS_JSON),
-                getAllFindings(FILTERED_PIPELINE_RESULTS_JSON));
+        PipelineScanResultsBarToolWindowFactory.getInstance()
+                .updateResultsForProject(project,
+                        getAllFindings(PIPELINE_RESULTS_JSON),
+                        getAllFindings(FILTERED_PIPELINE_RESULTS_JSON));
     }
 
     @NotNull
@@ -206,11 +227,50 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
     }
 
     private String getScanFinishedConfirmationMessage(int scanReturnCode) {
-        // TODO: differentiate between having NEW issues or ALL issues (use existence of baseline file to determine)
-        // TODO: if the scan fails, list the criteria that were set to put emphasis on what is making it fail
         return scanReturnCode > 0
-                ? "Pipeline scan detected " + scanReturnCode + " issues"
+                ? getScanIssuesFoundMessage(scanReturnCode)
                 : "Pipeline scan failed with return code of " + scanReturnCode;
+    }
+
+    private String getScanIssuesFoundMessage(int scanReturnCode) {
+        return "Pipeline scan detected " + scanReturnCode +
+                (isNullOrEmpty(projectSettingsState.getBaselineFile()) ? "" : " new") + " issues" +
+                getScanFailCriteriaForErrorMessage();
+    }
+
+    private boolean isNullOrEmpty(String baselineFile) {
+        return baselineFile != null && !"".equals(baselineFile.trim());
+    }
+
+    private String getScanFailCriteriaForErrorMessage() {
+        StringBuilder scanFailCriteriaForErrorMessage = new StringBuilder("\n\nScan fail criteria:\n");
+        boolean hasAddedASeverity = false;
+        ApplicationSettingsState applicationSettingsState = ApplicationSettingsState.getInstance();
+        if (applicationSettingsState.isShouldFailOnInformational()) {
+            scanFailCriteriaForErrorMessage.append("Informational");
+            hasAddedASeverity = true;
+        }
+        hasAddedASeverity = addForSeverityIfNecessary(applicationSettingsState.isShouldFailOnLow(),
+                hasAddedASeverity, scanFailCriteriaForErrorMessage, "Low");
+        hasAddedASeverity = addForSeverityIfNecessary(applicationSettingsState.isShouldFailOnMedium(),
+                hasAddedASeverity, scanFailCriteriaForErrorMessage, "Medium");
+        hasAddedASeverity = addForSeverityIfNecessary(applicationSettingsState.isShouldFailOnHigh(),
+                hasAddedASeverity, scanFailCriteriaForErrorMessage, "High");
+        hasAddedASeverity = addForSeverityIfNecessary(applicationSettingsState.isShouldFailOnVeryHigh(),
+                hasAddedASeverity, scanFailCriteriaForErrorMessage, "Very High");
+        return hasAddedASeverity ? scanFailCriteriaForErrorMessage.toString() : "";
+    }
+
+    private boolean addForSeverityIfNecessary(boolean isEvaluatingSeverity, boolean hasAddedASeverity,
+                                              StringBuilder scanFailCriteriaForErrorMessage, String Low) {
+        if (isEvaluatingSeverity) {
+            if (hasAddedASeverity) {
+                scanFailCriteriaForErrorMessage.append(", ");
+            }
+            scanFailCriteriaForErrorMessage.append(Low);
+            hasAddedASeverity = true;
+        }
+        return hasAddedASeverity;
     }
 
     private int runPipelineScan(ApplicationSettingsState applicationSettingsState) {
@@ -224,7 +284,7 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
         return scanReturnCode;
     }
 
-    private boolean showConfirmationDialog(String aMessage) {
+    private boolean getConfirmationDialogOutput(String aMessage) {
         return JOptionPane.showConfirmDialog(null, aMessage,
                 "Veracode Pipeline Scan", JOptionPane.YES_NO_CANCEL_OPTION) == 0;
     }
@@ -254,13 +314,16 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
     private void setCurrentFraction(double valueToSet) {
         progressIndicator.checkCanceled();
         currentFraction = valueToSet;
-        progressIndicator.setFraction(currentFraction * 2);
+        progressIndicator.setFraction(currentFraction * progressMultiplier);
         updateProgressIndicator();
     }
-
 
     private void updateProgressIndicator() {
         progressIndicator.pushState();
         progressIndicator.popState();
+    }
+
+    public Project getProject() {
+        return this.project;
     }
 }

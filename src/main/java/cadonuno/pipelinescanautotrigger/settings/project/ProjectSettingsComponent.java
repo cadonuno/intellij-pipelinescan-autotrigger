@@ -19,7 +19,7 @@ public class ProjectSettingsComponent {
 
     public ProjectSettingsComponent() {
         settingsPanel = FormBuilder.createFormBuilder()
-                .addLabeledComponent(new JBLabel("File to scan: "), fileToScanField, 1, false)
+                .addLabeledComponent(new JBLabel("File to scan*: "), fileToScanField, 1, false)
                 .addLabeledComponent(new JBLabel("Build command (including file parameter): "), buildCommandField, 1, false)
                 .addLabeledComponent(new JBLabel("Baseline file: "), baselineFileField, 1, false)
                 .addComponentFillVertically(new JPanel(), 0)
