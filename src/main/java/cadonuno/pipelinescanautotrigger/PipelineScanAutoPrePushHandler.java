@@ -9,7 +9,6 @@ import cadonuno.pipelinescanautotrigger.ui.PipelineScanResultsBarToolWindowFacto
 import com.intellij.dvcs.push.PrePushHandler;
 import com.intellij.dvcs.push.PushInfo;
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.progress.ProcessCanceledException;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.util.SmoothProgressAdapter;
 import com.intellij.openapi.project.Project;
@@ -90,7 +89,9 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
 
     @NotNull
     public Result startScan(@NotNull ProgressIndicator progressIndicator) {
-        if (project == null || !isScanEnabled()) {
+        if (project == null
+                || !projectSettingsState.isEnabled()
+                || !projectSettingsState.isShouldScanOnPush()) {
             return Result.OK;
         }
         progressMultiplier = progressIndicator instanceof SmoothProgressAdapter
@@ -103,10 +104,6 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
         } finally {
             timer.stop();
         }
-    }
-
-    public boolean isScanEnabled() {
-        return projectSettingsState.isEnabled();
     }
 
     private void setupScan(@NotNull ProgressIndicator progressIndicator) {
@@ -147,14 +144,25 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
             timer.stop();
         }
         if (scanReturnCode != 0) {
-            boolean shouldContinue = !getConfirmationDialogOutput(getScanFinishedConfirmationMessage(scanReturnCode) + "!" +
-                    "\nAbort push?");
+            boolean shouldContinue = showScanFailedMessageAndGetStatus(scanReturnCode);
             if (shouldContinue) {
                 return Result.OK;
             }
             return Result.ABORT;
         }
+        if (progressIndicator instanceof SmoothProgressAdapter) {
+            showMessagePopup("Scan finished, no " + getNewIssuesMessageSection() + " found");
+        }
         return Result.OK;
+    }
+
+    private boolean showScanFailedMessageAndGetStatus(int scanReturnCode) {
+        if (progressIndicator instanceof SmoothProgressAdapter) {
+            showMessagePopup(getScanFinishedConfirmationMessage(scanReturnCode) + "!");
+            return true;
+        }
+        return !getConfirmationDialogOutput(getScanFinishedConfirmationMessage(scanReturnCode) + "!" +
+                "\nAbort push?");
     }
 
     private void readResults() {
@@ -234,12 +242,16 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
 
     private String getScanIssuesFoundMessage(int scanReturnCode) {
         return "Pipeline scan detected " + scanReturnCode +
-                (isNullOrEmpty(projectSettingsState.getBaselineFile()) ? "" : " new") + " issues" +
+                getNewIssuesMessageSection() +
                 getScanFailCriteriaForErrorMessage();
     }
 
+    private String getNewIssuesMessageSection() {
+        return (isNullOrEmpty(projectSettingsState.getBaselineFile()) ? "" : " new") + " issues";
+    }
+
     private boolean isNullOrEmpty(String baselineFile) {
-        return baselineFile != null && !"".equals(baselineFile.trim());
+        return baselineFile == null || "".equals(baselineFile.trim());
     }
 
     private String getScanFailCriteriaForErrorMessage() {

@@ -19,6 +19,7 @@ public class ProjectSettingsState implements PersistentStateComponent<ProjectSet
     private String baselineFile = "results.json";
 
     private boolean isEnabled = false;
+    private boolean shouldScanOnPush = false;
 
     public ProjectSettingsState() {
     }
@@ -68,5 +69,13 @@ public class ProjectSettingsState implements PersistentStateComponent<ProjectSet
 
     public void setEnabled(boolean enabled) {
         isEnabled = enabled;
+    }
+
+    public boolean isShouldScanOnPush() {
+        return shouldScanOnPush;
+    }
+
+    public void setShouldScanOnPush(boolean shouldScanOnPush) {
+        this.shouldScanOnPush = shouldScanOnPush;
     }
 }

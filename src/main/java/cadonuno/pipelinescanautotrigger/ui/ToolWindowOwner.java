@@ -5,6 +5,8 @@ import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.ui.content.Content;
 import com.intellij.ui.table.JBTable;
 
+import javax.swing.*;
+
 public class ToolWindowOwner {
     private final Project project;
     private final ToolWindow toolWindow;
@@ -12,15 +14,20 @@ public class ToolWindowOwner {
     private final JBTable filteredResultsTable;
     private final Content filteredFindingsParent;
     private final Content allFindingsParent;
+    private final JButton allFindingsStartScanButton;
+    private final JButton filteredResultsStartScanButton;
+
 
     public ToolWindowOwner(Project project, ToolWindow toolWindow, JBTable allResultsTable, JBTable filteredResultsTable,
-                           Content filteredFindingsParent, Content allFindingsParent) {
+                           Content filteredFindingsParent, Content allFindingsParent, JButton allFindingsStartScanButton, JButton filteredResultsStartScanButton) {
         this.project = project;
         this.toolWindow = toolWindow;
         this.allResultsTable = allResultsTable;
         this.filteredResultsTable = filteredResultsTable;
         this.filteredFindingsParent = filteredFindingsParent;
         this.allFindingsParent = allFindingsParent;
+        this.allFindingsStartScanButton = allFindingsStartScanButton;
+        this.filteredResultsStartScanButton = filteredResultsStartScanButton;
     }
 
     public Content getAllFindingsParent() {
@@ -45,5 +52,10 @@ public class ToolWindowOwner {
 
     public Project getProject() {
         return project;
+    }
+
+    public void setScanButtonsEnabled(boolean isScanEnabled) {
+        allFindingsStartScanButton.setEnabled(isScanEnabled);
+        filteredResultsStartScanButton.setEnabled(isScanEnabled);
     }
 }

@@ -1,5 +1,7 @@
 package cadonuno.pipelinescanautotrigger.settings.project;
 
+import cadonuno.pipelinescanautotrigger.ui.PipelineScanResultsBarToolWindowFactory;
+import com.intellij.openapi.project.Project;
 import com.intellij.ui.components.JBCheckBox;
 import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBTextField;
@@ -13,11 +15,14 @@ public class ProjectSettingsComponent {
     private final JPanel mainPanel;
     private final JPanel settingsPanel;
     private final JBCheckBox isEnabledCheckBox = new JBCheckBox("Enabled");
+    private final JBCheckBox shouldScanOnPushCheckBox = new JBCheckBox("Scan before pushing new code");
     private final JBTextField fileToScanField = new JBTextField();
     private final JBTextField buildCommandField = new JBTextField();
     private final JBTextField baselineFileField = new JBTextField();
+    private final Project project;
 
-    public ProjectSettingsComponent() {
+    public ProjectSettingsComponent(Project project) {
+        this.project = project;
         settingsPanel = FormBuilder.createFormBuilder()
                 .addLabeledComponent(new JBLabel("File to scan*: "), fileToScanField, 1, false)
                 .addLabeledComponent(new JBLabel("Build command (including file parameter): "), buildCommandField, 1, false)
@@ -26,12 +31,15 @@ public class ProjectSettingsComponent {
                 .getPanel();
         mainPanel = FormBuilder.createFormBuilder()
                 .addComponent(isEnabledCheckBox)
+                .addComponent(shouldScanOnPushCheckBox)
                 .addComponent(settingsPanel)
                 .addComponentFillVertically(new JPanel(), 0)
                 .getPanel();
 
         isEnabledCheckBox.addChangeListener(e -> {
             settingsPanel.setVisible(isEnabledCheckBox.isSelected());
+            PipelineScanResultsBarToolWindowFactory.handleIsScanEnabledChange(
+                    project, isEnabledCheckBox.isSelected());
         });
     }
 
@@ -73,8 +81,18 @@ public class ProjectSettingsComponent {
         return isEnabledCheckBox.isSelected();
     }
 
+    public void setShouldScanOnPush(boolean shouldScanOnPush) {
+        shouldScanOnPushCheckBox.setSelected(shouldScanOnPush);
+    }
+
+    public boolean isShouldScanOnPush() {
+        return shouldScanOnPushCheckBox.isSelected();
+    }
+
     public void setEnabled(boolean isEnabled) {
         isEnabledCheckBox.setSelected(isEnabled);
         settingsPanel.setVisible(isEnabled);
+        PipelineScanResultsBarToolWindowFactory.handleIsScanEnabledChange(
+                project, isEnabledCheckBox.isSelected());
     }
 }

@@ -34,7 +34,6 @@ import com.intellij.uiDesigner.core.GridConstraints;
 import com.intellij.uiDesigner.core.GridLayoutManager;
 import com.intellij.util.concurrency.SwingWorker;
 import com.intellij.util.ui.JBUI;
-import io.netty.util.HashedWheelTimer;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
@@ -112,38 +111,43 @@ public class PipelineScanResultsBarToolWindowFactory implements ToolWindowFactor
         JBTable allResultsTable = initializeResultsTable(ALL_FINDINGS);
         JBTable filteredResultsTable = initializeResultsTable(FINDINGS_VIOLATING_CRITERIA);
 
+        FindingsPanelOwner allFindingsPanelOwner = getFindingsPanel(project, allResultsTable);
         Content allFindingsParent = toolWindow.getContentManager().getFactory()
-                .createContent(getFindingsPanel(project, allResultsTable),
+                .createContent(allFindingsPanelOwner.getPanel(),
                         ALL_FINDINGS + " (0)",
                         true);
         toolWindow.getContentManager().addContent(allFindingsParent);
 
+        FindingsPanelOwner filteredFindingsPanelOwner = getFindingsPanel(project, filteredResultsTable);
         Content filteredFindingsParent = toolWindow.getContentManager().getFactory()
-                .createContent(getFindingsPanel(project, filteredResultsTable),
+                .createContent(filteredFindingsPanelOwner.getPanel(),
                         FINDINGS_VIOLATING_CRITERIA + " (0)",
                         true);
         toolWindow.getContentManager().addContent(filteredFindingsParent);
 
         filteredResultsTable.addMouseListener(
-                getResultsTableMouseListener(filteredResultsTable)
+                getResultsTableMouseListener(project, filteredResultsTable)
         );
 
         allResultsTable.addMouseListener(
-                getResultsTableMouseListener(allResultsTable));
+                getResultsTableMouseListener(project, allResultsTable));
         toolWindow.getContentManager().addContent(filteredFindingsParent);
         projectToToolWindowMap.put(project, new ToolWindowOwner(project, toolWindow, allResultsTable,
-                filteredResultsTable, filteredFindingsParent, allFindingsParent));
+                filteredResultsTable, filteredFindingsParent, allFindingsParent,
+                allFindingsPanelOwner.getStartScanButton(),
+                filteredFindingsPanelOwner.getStartScanButton()));
     }
 
     @NotNull
-    private JPanel getFindingsPanel(Project project, JBTable resultsTable) {
+    private FindingsPanelOwner getFindingsPanel(Project project, JBTable resultsTable) {
         JPanel findingsPanel = new JPanel();
+        FindingsPanelOwner findingsPanelOwner = new FindingsPanelOwner(findingsPanel);
         findingsPanel.setLayout(MAIN_PANEL_LAYOUT);
         findingsPanel.add(initializeScrollPanel(resultsTable),
                 new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH,
                         GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW,
                         GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW | GridConstraints.SIZEPOLICY_WANT_GROW, null, null, null, 0, false));
-        findingsPanel.add(getStartScanButtonPanel(project),
+        findingsPanel.add(getStartScanButtonPanel(project, findingsPanelOwner),
                 new GridConstraints(1, 0, 1, 1, GridConstraints.ANCHOR_CENTER,
                         GridConstraints.FILL_BOTH,
                         GridConstraints.SIZEPOLICY_CAN_SHRINK,
@@ -151,14 +155,14 @@ public class PipelineScanResultsBarToolWindowFactory implements ToolWindowFactor
                         RESULTS_FOOTER_MINIMUM_SIZE,
                         RESULTS_FOOTER_PREFERRED_SIZE,
                         RESULTS_FOOTER_MAXIMUM_SIZE, 0, false));
-        return findingsPanel;
+        return findingsPanelOwner;
     }
 
     @NotNull
-    private MouseAdapter getResultsTableMouseListener(JBTable resultsTable) {
+    private MouseAdapter getResultsTableMouseListener(Project project, JBTable resultsTable) {
         return new MouseAdapter() {
             public void mousePressed(MouseEvent mouseEvent) {
-                mousePressedOnTableEvent(mouseEvent, resultsTable);
+                mousePressedOnTableEvent(mouseEvent, project, resultsTable);
             }
         };
     }
@@ -180,9 +184,10 @@ public class PipelineScanResultsBarToolWindowFactory implements ToolWindowFactor
         return resultsTable;
     }
 
-    private JPanel getStartScanButtonPanel(Project project) {
+    private JPanel getStartScanButtonPanel(Project project, FindingsPanelOwner findingsPanelOwner) {
         JButton startScanButton = new JButton("Run Pipeline Scan");
         startScanButton.addActionListener(getStartScanAction(project));
+        findingsPanelOwner.setStartScanButton(startScanButton);
         JPanel buttonParent = new JPanel();
         buttonParent.add(startScanButton);
         buttonParent.setLayout(new FlowLayout(FlowLayout.RIGHT));
@@ -191,7 +196,6 @@ public class PipelineScanResultsBarToolWindowFactory implements ToolWindowFactor
 
     @NotNull
     private ActionListener getStartScanAction(Project project) {
-        //TODO: hide the start scan button if the scan is disabled
         return e ->
                 Optional.ofNullable(project)
                         .ifPresent(this::startScanOnProject);
@@ -207,17 +211,16 @@ public class PipelineScanResultsBarToolWindowFactory implements ToolWindowFactor
         progressWindow.setTitle("Running pipeline scan");
         ProgressIndicator progressIndicator = new SmoothProgressAdapter(progressWindow, project);
 
-        Runnable outerRunnable = () -> {
-            ProgressManager.getInstance().runProcess(() -> {
-                try {
-                    handler.startScan(progressIndicator);
-                } catch (ProcessCanceledException pce) {
-                    //process was cancelled, let's just stop
-                }
-            }, progressIndicator);
-        };
+        Runnable outerRunnable = () ->
+                ProgressManager.getInstance().runProcess(() -> {
+                    try {
+                        handler.startScan(progressIndicator);
+                    } catch (ProcessCanceledException pce) {
+                        //process was cancelled, let's just stop
+                    }
+                }, progressIndicator);
 
-        new SwingWorker() {
+        new SwingWorker<>() {
             @Override
             public Object construct() {
                 outerRunnable.run();
@@ -226,7 +229,7 @@ public class PipelineScanResultsBarToolWindowFactory implements ToolWindowFactor
         }.start();
     }
 
-    private void mousePressedOnTableEvent(MouseEvent mouseEvent, JBTable clickedTable) {
+    private void mousePressedOnTableEvent(MouseEvent mouseEvent, Project project, JBTable clickedTable) {
         Point point = mouseEvent.getPoint();
         int row = clickedTable.rowAtPoint(point);
         int col = clickedTable.columnAtPoint(point);
@@ -236,22 +239,11 @@ public class PipelineScanResultsBarToolWindowFactory implements ToolWindowFactor
         TableModel tableModel = clickedTable.getModel();
         if (col == DETAILS_COLUMN_INDEX) {
             Optional.ofNullable(detailsMap.get((long) tableModel.getValueAt(row, 0)))
-                    .ifPresent(DetailsDialog::new);
+                    .ifPresent(DetailsDialog::show);
 
         } else if (mouseEvent.getClickCount() == 2) {
-            getProjectByPath((String) tableModel.getValueAt(row, tableModel.getColumnCount() - 1))
-                    .ifPresent(project -> jumpToFinding(project, clickedTable, row));
+            jumpToFinding(project, clickedTable, row);
         }
-    }
-
-    private Optional<Project> getProjectByPath(String projectPath) {
-        ProjectManager projectManager = ProjectManager.getInstance();
-        if (projectManager != null) {
-            return Arrays.stream(projectManager.getOpenProjects())
-                    .filter(project -> projectPath.equals(project.getProjectFilePath()))
-                    .findFirst();
-        }
-        return Optional.empty();
     }
 
     private void jumpToFinding(Project project, JBTable clickedTable, int row) {
@@ -302,12 +294,17 @@ public class PipelineScanResultsBarToolWindowFactory implements ToolWindowFactor
         toolWindowOwner.getFilteredFindingsParent().setDisplayName(FINDINGS_VIOLATING_CRITERIA + " (" + filteredResults.size() + ")");
     }
 
-    public void init(ToolWindow window) {
+    public void init(@NotNull ToolWindow window) {
     }
 
     public boolean shouldBeAvailable(@NotNull Project project) {
         return Optional.ofNullable(project.getService(ProjectSettingsState.class))
-                .filter(ProjectSettingsState::isEnabled)
                 .isPresent();
+    }
+
+    public static void handleIsScanEnabledChange(Project project, boolean isScanEnabled) {
+        Optional.ofNullable(projectToToolWindowMap.get(project))
+                .ifPresent(pipelineScanResultsBarToolWindowFactory ->
+                        pipelineScanResultsBarToolWindowFactory.setScanButtonsEnabled(isScanEnabled));
     }
 }
