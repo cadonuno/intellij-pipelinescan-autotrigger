@@ -1,4 +1,4 @@
-package cadonuno.pipelinescanautotrigger.ui;
+package cadonuno.pipelinescanautotrigger.ui.scanresults;
 
 import javax.swing.table.DefaultTableModel;
 

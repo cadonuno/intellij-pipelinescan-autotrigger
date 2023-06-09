@@ -5,11 +5,13 @@ import cadonuno.pipelinescanautotrigger.pipelinescan.PipelineScanFinding;
 import cadonuno.pipelinescanautotrigger.pipelinescan.PipelineScanWrapper;
 import cadonuno.pipelinescanautotrigger.settings.global.ApplicationSettingsState;
 import cadonuno.pipelinescanautotrigger.settings.project.ProjectSettingsState;
-import cadonuno.pipelinescanautotrigger.ui.PipelineScanResultsBarToolWindowFactory;
+import cadonuno.pipelinescanautotrigger.ui.MessageHandler;
+import cadonuno.pipelinescanautotrigger.ui.scanresults.PipelineScanResultsBarToolWindowFactory;
 import com.intellij.dvcs.push.PrePushHandler;
 import com.intellij.dvcs.push.PushInfo;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.progress.ProgressIndicator;
+import com.intellij.openapi.progress.impl.BackgroundableProcessIndicator;
 import com.intellij.openapi.progress.util.SmoothProgressAdapter;
 import com.intellij.openapi.project.Project;
 import net.minidev.json.JSONArray;
@@ -84,19 +86,23 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
 
     @Override
     public @NotNull Result handle(@NotNull List<PushInfo> list, @NotNull ProgressIndicator progressIndicator) {
-        return startScan(progressIndicator);
+        return startScan(progressIndicator, false);
     }
 
     @NotNull
-    public Result startScan(@NotNull ProgressIndicator progressIndicator) {
+    public Result startScan(@NotNull ProgressIndicator progressIndicator, boolean isManualCall) {
         if (project == null
                 || !projectSettingsState.isEnabled()
-                || !projectSettingsState.isShouldScanOnPush()) {
+                || (!isManualCall && !projectSettingsState.isShouldScanOnPush())) {
+            if (isManualCall) {
+                MessageHandler.showMessagePopup("Scan is disabled and won't be started");
+            }
+
             return Result.OK;
         }
-        progressMultiplier = progressIndicator instanceof SmoothProgressAdapter
+        progressMultiplier = progressIndicator instanceof BackgroundableProcessIndicator
                 ? 1 : 2;
-        setupScan(progressIndicator);
+        setupScan(progressIndicator, project);
         try {
             return buildApplicationIfNecessary()
                     .map(this::runScan)
@@ -106,13 +112,13 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
         }
     }
 
-    private void setupScan(@NotNull ProgressIndicator progressIndicator) {
+    private void setupScan(@NotNull ProgressIndicator progressIndicator, Project project) {
         PipelineScanWrapper.cleanupDirectory(baseDirectory);
         this.progressIndicator = progressIndicator;
         messageQueue = "";
         setCurrentFraction(.0d);
         setMessage(INITIAL_MESSAGE);
-        setupTimer();
+        setupTimer(project);
         maxFraction = BUILD_STEP_MAX_FRACTION;
         currentIncrement = 0.003;
     }
@@ -124,7 +130,7 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
             setMessage(BUILDING_APPLICATION_MESSAGE);
             if (OsCommandRunner.runCommand("application build",
                     projectSettingsState.getBuildCommand(), this) != 0) {
-                showMessagePopup(VERACODE_PIPELINE_SCAN + "Unable to build application!");
+                MessageHandler.showMessagePopup(VERACODE_PIPELINE_SCAN + "Unable to build application!");
                 return Optional.empty();
             }
         }
@@ -150,15 +156,15 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
             }
             return Result.ABORT;
         }
-        if (progressIndicator instanceof SmoothProgressAdapter) {
-            showMessagePopup("Scan finished, no " + getNewIssuesMessageSection() + " found");
+        if (progressIndicator instanceof BackgroundableProcessIndicator) {
+            MessageHandler.showMessagePopup("Scan finished, no" + getNewIssuesMessageSection() + " found");
         }
         return Result.OK;
     }
 
     private boolean showScanFailedMessageAndGetStatus(int scanReturnCode) {
-        if (progressIndicator instanceof SmoothProgressAdapter) {
-            showMessagePopup(getScanFinishedConfirmationMessage(scanReturnCode) + "!");
+        if (progressIndicator instanceof BackgroundableProcessIndicator) {
+            MessageHandler.showMessagePopup(getScanFinishedConfirmationMessage(scanReturnCode) + "!");
             return true;
         }
         return !getConfirmationDialogOutput(getScanFinishedConfirmationMessage(scanReturnCode) + "!" +
@@ -218,10 +224,13 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
                 .orElse(0);
     }
 
-    private void setupTimer() {
+    private void setupTimer(Project project) {
         timer = new Timer(400, actionEvent -> {
             if (progressIndicator.isCanceled()) {
                 progressIndicator.setText2("Cancelling scan");
+                /*if (progressIndicator instanceof BackgroundableProcessIndicator) {
+                    PipelineScanResultsBarToolWindowFactory.closeProgressWindow(project);
+                }*/
             }
             progressIndicator.setText(runningMessage + ELIPSIS_SET[elipsisIndex]);
             updateProgressIndicator();
@@ -299,10 +308,6 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
     private boolean getConfirmationDialogOutput(String aMessage) {
         return JOptionPane.showConfirmDialog(null, aMessage,
                 "Veracode Pipeline Scan", JOptionPane.YES_NO_CANCEL_OPTION) == 0;
-    }
-
-    private void showMessagePopup(String aMessage) {
-        JOptionPane.showMessageDialog(null, aMessage);
     }
 
     private void setMessage(String message) {

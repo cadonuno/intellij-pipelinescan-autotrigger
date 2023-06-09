@@ -1,4 +1,4 @@
-package cadonuno.pipelinescanautotrigger.ui;
+package cadonuno.pipelinescanautotrigger.ui.scanresults;
 
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.wm.ToolWindow;

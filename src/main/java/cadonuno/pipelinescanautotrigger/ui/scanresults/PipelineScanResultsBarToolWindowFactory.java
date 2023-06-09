@@ -7,22 +7,24 @@
  *
  * See the license agreement for conditions on submitted materials.
  ******************************************************************************/
-package cadonuno.pipelinescanautotrigger.ui;
+package cadonuno.pipelinescanautotrigger.ui.scanresults;
 
 
 import cadonuno.pipelinescanautotrigger.PipelineScanAutoPrePushHandler;
 import cadonuno.pipelinescanautotrigger.pipelinescan.PipelineScanFinding;
 import cadonuno.pipelinescanautotrigger.settings.project.ProjectSettingsState;
+import cadonuno.pipelinescanautotrigger.ui.issuedetails.IssueDetailsToolWindow;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.progress.ProcessCanceledException;
-import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.ProgressManager;
-import com.intellij.openapi.progress.util.ProgressWindow;
-import com.intellij.openapi.progress.util.SmoothProgressAdapter;
+import com.intellij.openapi.progress.TaskInfo;
+import com.intellij.openapi.progress.impl.BackgroundableProcessIndicator;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.project.ProjectManager;
+import com.intellij.openapi.util.NlsContexts;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowFactory;
+import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.search.FilenameIndex;
 import com.intellij.psi.search.GlobalSearchScope;
@@ -43,13 +45,14 @@ import java.awt.*;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.util.*;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- * This class creates the scan results window Created by Virtusa on 2/22/2017.
- */
 public class PipelineScanResultsBarToolWindowFactory implements ToolWindowFactory {
+    private static final String TOOL_WINDOW_ID = "Veracode Pipeline Scan Results";
     private static final Color HYPERLINK_COLOR = new JBColor(new Color(1, 108, 93),
             new Color(1, 108, 93));
     private static final String ALL_FINDINGS = "All Findings";
@@ -62,12 +65,38 @@ public class PipelineScanResultsBarToolWindowFactory implements ToolWindowFactor
     private static final Dimension RESULTS_FOOTER_MINIMUM_SIZE = new Dimension(100, RESULTS_FOOTER_HEIGHT);
     private static final Dimension RESULTS_FOOTER_PREFERRED_SIZE = new Dimension(512, RESULTS_FOOTER_HEIGHT);
     private static final Dimension RESULTS_FOOTER_MAXIMUM_SIZE = new Dimension(1920, RESULTS_FOOTER_HEIGHT);
+    private static final TaskInfo PROGRESS_TASK_INFO = new TaskInfo() {
+        @Override
+        public @NotNull
+        @NlsContexts.ProgressTitle String getTitle() {
+            return "Veracode pipeline scan";
+        }
+
+        @Override
+        public @NlsContexts.Button String getCancelText() {
+            return "Cancel";
+        }
+
+        @Override
+        public @NlsContexts.Tooltip String getCancelTooltipText() {
+            return null;
+        }
+
+        @Override
+        public boolean isCancellable() {
+            return true;
+        }
+    };
 
     private static Color defaultColor = null;
     private static Integer defaultWidth = null;
 
     public static final int DETAILS_COLUMN_INDEX = 4;
     private final static Map<Project, ToolWindowOwner> projectToToolWindowMap = new HashMap<>();
+
+    private final static Map<Project, BackgroundableProcessIndicator> projectToProgressIndicatorWindowMap = new HashMap<>();
+
+    private final AtomicBoolean isScanning = new AtomicBoolean(false);
 
     private static final DefaultTableCellRenderer TABLE_RENDERER = new DefaultTableCellRenderer() {
         @Override
@@ -99,6 +128,19 @@ public class PipelineScanResultsBarToolWindowFactory implements ToolWindowFactor
 
     public static PipelineScanResultsBarToolWindowFactory getInstance() {
         return instance;
+    }
+
+    public static void closeProgressWindow(Project project) {
+        getProgressWindowForProject(project)
+                .ifPresent(progressWindow -> {
+                    ApplicationManager.getApplication()
+                            .invokeLater(() -> {
+                                projectToProgressIndicatorWindowMap.remove(project);
+                                progressWindow.dispose();
+                                Optional.ofNullable(projectToToolWindowMap.get(project))
+                                        .ifPresent(windowOwner -> windowOwner.setScanButtonsEnabled(true));
+                    });
+                });
     }
 
     @Override
@@ -203,30 +245,62 @@ public class PipelineScanResultsBarToolWindowFactory implements ToolWindowFactor
     }
 
     private void startScanOnProject(Project project) {
-        PipelineScanAutoPrePushHandler handler =
-                PipelineScanAutoPrePushHandler.getProjectHandler(project)
-                        .orElseGet(() -> new PipelineScanAutoPrePushHandler(project));
-
-        ProgressWindow progressWindow = new ProgressWindow(true, handler.getProject());
-        progressWindow.setTitle("Running pipeline scan");
-        ProgressIndicator progressIndicator = new SmoothProgressAdapter(progressWindow, project);
-
-        Runnable outerRunnable = () ->
-                ProgressManager.getInstance().runProcess(() -> {
-                    try {
-                        handler.startScan(progressIndicator);
-                    } catch (ProcessCanceledException pce) {
-                        //process was cancelled, let's just stop
-                    }
-                }, progressIndicator);
-
-        new SwingWorker<>() {
-            @Override
-            public Object construct() {
-                outerRunnable.run();
-                return null;
+        if (!isScanning.get()) {
+            isScanning.set(true);
+            Optional.ofNullable(projectToToolWindowMap.get(project))
+                    .ifPresent(windowOwner -> windowOwner.setScanButtonsEnabled(false));
+            boolean successfullyStarted = false;
+            try {
+                successfullyStarted = tryStartScan(project);
+            } finally {
+                if (!successfullyStarted) {
+                    isScanning.set(false);
+                    closeProgressWindow(project);
+                }
             }
-        }.start();
+        } else {
+            getProgressWindowForProject(project)
+                    .filter(progressWindow -> progressWindow.isCanceled() || !progressWindow.isRunning())
+                    .ifPresent(progressWindow -> isScanning.set(false));
+        }
+    }
+
+    private boolean tryStartScan(Project project) {
+        try {
+
+            PipelineScanAutoPrePushHandler handler =
+                    PipelineScanAutoPrePushHandler.getProjectHandler(project)
+                            .orElseGet(() -> new PipelineScanAutoPrePushHandler(project));
+
+            BackgroundableProcessIndicator progressWindow = new BackgroundableProcessIndicator(handler.getProject(), PROGRESS_TASK_INFO);
+            progressWindow.setTitle("Running pipeline scan");
+            projectToProgressIndicatorWindowMap.put(project, progressWindow);
+
+            Runnable outerRunnable = () ->
+                    ProgressManager.getInstance().runProcess(() -> {
+                        try {
+                            handler.startScan(progressWindow, true);
+                        } catch (ProcessCanceledException pce) {
+                            //process was cancelled, let's just stop
+                        } finally {
+                            isScanning.set(false);
+                            closeProgressWindow(project);
+                        }
+
+                    }, progressWindow);
+
+            new SwingWorker<>() {
+                @Override
+                public Object construct() {
+                    outerRunnable.run();
+                    return null;
+                }
+            }.start();
+            return true;
+        } catch (Exception e) {
+            //in case of any error, we just need to notify the outer method
+            return false;
+        }
     }
 
     private void mousePressedOnTableEvent(MouseEvent mouseEvent, Project project, JBTable clickedTable) {
@@ -239,7 +313,8 @@ public class PipelineScanResultsBarToolWindowFactory implements ToolWindowFactor
         TableModel tableModel = clickedTable.getModel();
         if (col == DETAILS_COLUMN_INDEX) {
             Optional.ofNullable(detailsMap.get((long) tableModel.getValueAt(row, 0)))
-                    .ifPresent(DetailsDialog::show);
+                    .ifPresent(detailsHtml -> IssueDetailsToolWindow.getCurrentOrMakeNewInstance()
+                            .setDetailsAndShow(project, detailsHtml));
 
         } else if (mouseEvent.getClickCount() == 2) {
             jumpToFinding(project, clickedTable, row);
@@ -276,7 +351,14 @@ public class PipelineScanResultsBarToolWindowFactory implements ToolWindowFactor
                                         List<PipelineScanFinding> filteredResults) {
         ToolWindowOwner toolWindowOwner = projectToToolWindowMap.get(project);
         if (toolWindowOwner == null) {
-            return;
+            ToolWindow tempWindow = ToolWindowManager.getInstance(project).getToolWindow(TOOL_WINDOW_ID);
+            if (tempWindow != null) {
+                tempWindow.show();
+                toolWindowOwner = projectToToolWindowMap.get(project);
+            }
+            if (toolWindowOwner == null) {
+                return;
+            }
         }
         FindingResultsTableModel allFindingsModel = new FindingResultsTableModel();
         results.forEach(element -> {
@@ -294,9 +376,11 @@ public class PipelineScanResultsBarToolWindowFactory implements ToolWindowFactor
         toolWindowOwner.getFilteredFindingsParent().setDisplayName(FINDINGS_VIOLATING_CRITERIA + " (" + filteredResults.size() + ")");
     }
 
+    @Override
     public void init(@NotNull ToolWindow window) {
     }
 
+    @Override
     public boolean shouldBeAvailable(@NotNull Project project) {
         return Optional.ofNullable(project.getService(ProjectSettingsState.class))
                 .isPresent();
@@ -306,5 +390,10 @@ public class PipelineScanResultsBarToolWindowFactory implements ToolWindowFactor
         Optional.ofNullable(projectToToolWindowMap.get(project))
                 .ifPresent(pipelineScanResultsBarToolWindowFactory ->
                         pipelineScanResultsBarToolWindowFactory.setScanButtonsEnabled(isScanEnabled));
+    }
+
+    @NotNull
+    private static Optional<BackgroundableProcessIndicator> getProgressWindowForProject(Project project) {
+        return Optional.ofNullable(projectToProgressIndicatorWindowMap.get(project));
     }
 }

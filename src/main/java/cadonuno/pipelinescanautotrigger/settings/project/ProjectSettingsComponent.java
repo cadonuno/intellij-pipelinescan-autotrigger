@@ -1,6 +1,6 @@
 package cadonuno.pipelinescanautotrigger.settings.project;
 
-import cadonuno.pipelinescanautotrigger.ui.PipelineScanResultsBarToolWindowFactory;
+import cadonuno.pipelinescanautotrigger.ui.scanresults.PipelineScanResultsBarToolWindowFactory;
 import com.intellij.openapi.project.Project;
 import com.intellij.ui.components.JBCheckBox;
 import com.intellij.ui.components.JBLabel;

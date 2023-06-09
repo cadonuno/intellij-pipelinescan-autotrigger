@@ -12,7 +12,11 @@
     <extensions defaultExtensionNs="com.intellij">
         <toolWindow id="Veracode Pipeline Scan Results"  icon="/META-INF/veracode-pipeline-logo.png"
                     anchor="bottom"
-                    factoryClass="cadonuno.pipelinescanautotrigger.ui.PipelineScanResultsBarToolWindowFactory"/>
+                    factoryClass="cadonuno.pipelinescanautotrigger.ui.scanresults.PipelineScanResultsBarToolWindowFactory"/>
+
+        <toolWindow id="Veracode Pipeline Scan Issue Details"  icon="/META-INF/veracode-pipeline-logo.png"
+                    anchor="right"
+                    factoryClass="cadonuno.pipelinescanautotrigger.ui.issuedetails.IssueDetailsToolWindow"/>
 
         <prePushHandler
                 implementation="cadonuno.pipelinescanautotrigger.PipelineScanAutoPrePushHandler"/>
@@ -21,7 +25,7 @@
                 parentId="root"
                 instance="cadonuno.pipelinescanautotrigger.settings.base.BaseSettingsConfigurable"
                 id="cadonuno.pipelinescanautotrigger.settings.base.BaseSettings"
-                displayName="Pipeline Scan Auto-Trigger"/>
+                displayName="Veracode Pipeline Scan"/>
 
         <applicationService
                 serviceImplementation="cadonuno.pipelinescanautotrigger.settings.global.ApplicationSettingsState"/>
