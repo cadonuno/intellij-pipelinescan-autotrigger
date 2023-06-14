@@ -25,6 +25,12 @@ public class ApplicationSettingsState implements PersistentStateComponent<Applic
     private CredentialsTypeEnum credentialsType = CredentialsTypeEnum.LiteralCredentials;
     private String credentialsProfileName = "default";
 
+    private String proxyHost;
+    private String proxyPort;
+    private String proxyUsername;
+    private String proxyPassword;
+    private String optArgs;
+
     public static ApplicationSettingsState getInstance() {
         return ApplicationManager.getApplication().getService(ApplicationSettingsState.class);
     }
@@ -135,5 +141,45 @@ public class ApplicationSettingsState implements PersistentStateComponent<Applic
 
     public void setCredentialsProfileName(String credentialsProfileName) {
         this.credentialsProfileName = credentialsProfileName;
+    }
+
+    public String getOptArgs() {
+        return optArgs;
+    }
+
+    public void setOptArgs(String optArgs) {
+        this.optArgs = optArgs;
+    }
+
+    public String getProxyPassword() {
+        return proxyPassword;
+    }
+
+    public void setProxyPassword(String proxyPassword) {
+        this.proxyPassword = proxyPassword;
+    }
+
+    public String getProxyUsername() {
+        return proxyUsername;
+    }
+
+    public void setProxyUsername(String proxyUsername) {
+        this.proxyUsername = proxyUsername;
+    }
+
+    public String getProxyPort() {
+        return proxyPort;
+    }
+
+    public void setProxyPort(String proxyPort) {
+        this.proxyPort = proxyPort;
+    }
+
+    public String getProxyHost() {
+        return proxyHost;
+    }
+
+    public void setProxyHost(String proxyHost) {
+        this.proxyHost = proxyHost;
     }
 }

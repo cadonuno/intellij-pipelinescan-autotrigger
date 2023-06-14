@@ -1,5 +1,6 @@
 package cadonuno.pipelinescanautotrigger;
 
+import cadonuno.pipelinescanautotrigger.exceptions.VeracodePipelineScanException;
 import cadonuno.pipelinescanautotrigger.pipelinescan.OsCommandRunner;
 import cadonuno.pipelinescanautotrigger.pipelinescan.PipelineScanFinding;
 import cadonuno.pipelinescanautotrigger.pipelinescan.PipelineScanWrapper;
@@ -7,12 +8,13 @@ import cadonuno.pipelinescanautotrigger.settings.global.ApplicationSettingsState
 import cadonuno.pipelinescanautotrigger.settings.project.ProjectSettingsState;
 import cadonuno.pipelinescanautotrigger.ui.MessageHandler;
 import cadonuno.pipelinescanautotrigger.ui.scanresults.PipelineScanResultsBarToolWindowFactory;
+import cadonuno.pipelinescanautotrigger.util.Constants;
+import com.google.common.base.Strings;
 import com.intellij.dvcs.push.PrePushHandler;
 import com.intellij.dvcs.push.PushInfo;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.impl.BackgroundableProcessIndicator;
-import com.intellij.openapi.progress.util.SmoothProgressAdapter;
 import com.intellij.openapi.project.Project;
 import net.minidev.json.JSONArray;
 import net.minidev.json.JSONObject;
@@ -24,6 +26,7 @@ import org.jetbrains.annotations.NotNull;
 import javax.swing.JOptionPane;
 import javax.swing.Timer;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public class PipelineScanAutoPrePushHandler implements PrePushHandler {
@@ -66,6 +69,7 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
 
     private static final Map<String, PipelineScanAutoPrePushHandler> projectToHandlerMap = new HashMap<>();
     private double progressMultiplier;
+    private List<VeracodePipelineScanException> exceptions;
 
     public PipelineScanAutoPrePushHandler(Project project) {
         LOG.info("Creating handler for project: " + project.getProjectFilePath());
@@ -100,6 +104,13 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
 
             return Result.OK;
         }
+
+        String foundErrors = projectSettingsState.getValidationErrors(ApplicationSettingsState.getInstance(), project);
+        if (!Strings.isNullOrEmpty(foundErrors)) {
+            MessageHandler.showMessagePopup(foundErrors);
+            return Result.ABORT;
+        }
+
         progressMultiplier = progressIndicator instanceof BackgroundableProcessIndicator
                 ? 1 : 2;
         setupScan(progressIndicator, project);
@@ -128,9 +139,19 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
         baseDirectory = project.getBasePath();
         if (projectSettingsState.getBuildCommand() != null) {
             setMessage(BUILDING_APPLICATION_MESSAGE);
-            if (OsCommandRunner.runCommand("application build",
-                    projectSettingsState.getBuildCommand(), this) != 0) {
-                MessageHandler.showMessagePopup(VERACODE_PIPELINE_SCAN + "Unable to build application!");
+            try {
+                Process process = OsCommandRunner.runCommand("Application Build",
+                        projectSettingsState.getBuildCommand(), this);
+                if (process.exitValue() != 0) {
+                    try {
+                        MessageHandler.showErrorPopup(VERACODE_PIPELINE_SCAN + "Unable to build application!", OsCommandRunner.readErrorLog(process));
+                    } catch (IOException e) {
+                        throw new VeracodePipelineScanException("Unable to build application!", e);
+                    }
+                    return Optional.empty();
+                }
+            } catch (VeracodePipelineScanException e) {
+                e.showErrorMessage();
                 return Optional.empty();
             }
         }
@@ -143,6 +164,9 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
         setCurrentFraction(BUILD_STEP_MAX_FRACTION);
 
         int scanReturnCode = runPipelineScan(applicationSettingsState);
+        if (scanReturnCode == Constants.UNABLE_TO_START_ERROR) {
+            return Result.ABORT;
+        }
         maxFraction = FULL_PROGRESS_BAR;
         setCurrentFraction(FULL_PROGRESS_BAR);
         readResults();
@@ -163,6 +187,9 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
     }
 
     private boolean showScanFailedMessageAndGetStatus(int scanReturnCode) {
+        if (scanReturnCode < Constants.FIRST_NEGATIVE_VALUE) {
+            return false;
+        }
         if (progressIndicator instanceof BackgroundableProcessIndicator) {
             MessageHandler.showMessagePopup(getScanFinishedConfirmationMessage(scanReturnCode) + "!");
             return true;
@@ -172,11 +199,17 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
     }
 
     private void readResults() {
+        exceptions = new ArrayList<>();
         setMessage("Reading results");
         PipelineScanResultsBarToolWindowFactory.getInstance()
                 .updateResultsForProject(project,
                         getAllFindings(PIPELINE_RESULTS_JSON),
                         getAllFindings(FILTERED_PIPELINE_RESULTS_JSON));
+        if (exceptions.size() == 1) {
+            exceptions.get(0).showErrorMessage();
+        } else if (exceptions.size() == 2) {
+            exceptions.get(0).showCombinedError(exceptions.get(1));
+        }
     }
 
     @NotNull
@@ -204,7 +237,7 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
                 allFindings.add(finding);
             }
         } catch (IOException | ParseException e) {
-            throw new RuntimeException(e);
+            exceptions.add(new VeracodePipelineScanException("Unable to read json results at " + resultsFileName, e));
         } finally {
             resultsFile.delete();
         }
@@ -299,6 +332,9 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
         currentIncrement = 0.1d;
         setMessage(SETTING_UP_PIPELINE_SCANNER_MESSAGE);
         try (PipelineScanWrapper pipelineScanWrapper = PipelineScanWrapper.acquire(baseDirectory, projectSettingsState)) {
+            if (pipelineScanWrapper.isEmptyWrapper()) {
+                return Constants.EMPTY_WRAPPER_ERROR;
+            }
             setMessage(RUNNING_PIPELINE_SCAN_UPLOADING_FILES_MESSAGE);
             scanReturnCode = pipelineScanWrapper.startScan(applicationSettingsState, this);
         }

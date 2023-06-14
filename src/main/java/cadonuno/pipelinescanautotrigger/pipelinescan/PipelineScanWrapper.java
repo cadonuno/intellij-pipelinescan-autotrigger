@@ -2,11 +2,14 @@ package cadonuno.pipelinescanautotrigger.pipelinescan;
 
 
 import cadonuno.pipelinescanautotrigger.PipelineScanAutoPrePushHandler;
+import cadonuno.pipelinescanautotrigger.exceptions.VeracodePipelineScanException;
+import cadonuno.pipelinescanautotrigger.settings.credentials.CredentialsTypeEnum;
 import cadonuno.pipelinescanautotrigger.settings.credentials.VeracodeCredentials;
 import cadonuno.pipelinescanautotrigger.settings.global.ApplicationSettingsState;
-import cadonuno.pipelinescanautotrigger.settings.credentials.CredentialsTypeEnum;
 import cadonuno.pipelinescanautotrigger.settings.project.ProjectSettingsState;
+import cadonuno.pipelinescanautotrigger.util.Constants;
 import cadonuno.pipelinescanautotrigger.util.ZipHandler;
+import com.google.common.base.Strings;
 import com.intellij.openapi.diagnostic.Logger;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -22,19 +25,29 @@ public class PipelineScanWrapper implements Closeable {
     private static final String ZIP_FILE = VERACODE_PIPELINE_SCAN_DIRECTORY + "/pipeline-scan-LATEST.zip";
     private static final int CONNECT_TIMEOUT = 1000;
     private static final int READ_TIMEOUT = 1000;
+    private static final PipelineScanWrapper EMPTY_WRAPPER = new PipelineScanWrapper();
     private final String baseDirectory;
     private final ProjectSettingsState projectSettingsState;
+    private final boolean isEmptyWrapper;
 
-    private PipelineScanWrapper(String baseDirectory, ProjectSettingsState projectSettingsState) {
+    //EMTPY WRAPPER
+    private PipelineScanWrapper() {
+        baseDirectory = null;
+        projectSettingsState = null;
+        isEmptyWrapper = true;
+    }
+
+    private PipelineScanWrapper(String baseDirectory, ProjectSettingsState projectSettingsState) throws VeracodePipelineScanException {
         this.baseDirectory = baseDirectory;
         this.projectSettingsState = projectSettingsState;
         cleanupDirectory(baseDirectory);
         File pipelineScannerZipLocation = new File(baseDirectory, ZIP_FILE);
         downloadZip(pipelineScannerZipLocation);
         ZipHandler.unzipFile(pipelineScannerZipLocation);
+        isEmptyWrapper = false;
     }
 
-    private void downloadZip(File pipelineScannerZipLocation) {
+    private void downloadZip(File pipelineScannerZipLocation) throws VeracodePipelineScanException {
         try {
             FileUtils.copyURLToFile(
                     new URL(FILE_URL),
@@ -42,18 +55,25 @@ public class PipelineScanWrapper implements Closeable {
                     CONNECT_TIMEOUT,
                     READ_TIMEOUT);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new VeracodePipelineScanException("Unable to download pipeline scanner", e);
         }
     }
 
     public static PipelineScanWrapper acquire(String baseDirectory,
                                               ProjectSettingsState projectSettingsState) {
-        return new PipelineScanWrapper(baseDirectory, projectSettingsState);
+        try {
+            return new PipelineScanWrapper(baseDirectory, projectSettingsState);
+        } catch (VeracodePipelineScanException e) {
+            e.showErrorMessage();
+            return EMPTY_WRAPPER;
+        }
     }
 
     @Override
     public void close() {
-        cleanupDirectory(baseDirectory);
+        if (baseDirectory != null) {
+            cleanupDirectory(baseDirectory);
+        }
     }
 
     public static void cleanupDirectory(String baseDirectory) {
@@ -69,14 +89,32 @@ public class PipelineScanWrapper implements Closeable {
 
     public int startScan(ApplicationSettingsState applicationSettingsState,
                          PipelineScanAutoPrePushHandler pipelineScanAutoPrePushHandler) {
-        return OsCommandRunner.runCommand("pipeline scan",
-                buildCommand(new File(new File(baseDirectory, VERACODE_PIPELINE_SCAN_DIRECTORY), "pipeline-scan.jar"),
-                        applicationSettingsState), pipelineScanAutoPrePushHandler);
+        try {
+            Process process = OsCommandRunner.runCommand("pipeline scan",
+                    buildCommand(new File(new File(baseDirectory, VERACODE_PIPELINE_SCAN_DIRECTORY), "pipeline-scan.jar"),
+                            applicationSettingsState), pipelineScanAutoPrePushHandler);
+            if (process.exitValue() == 0) {
+                return 0;
+            }
+            try {
+                String errors = OsCommandRunner.readErrorLog(process);
+                if (errors != null) {
+                    throw new VeracodePipelineScanException("Unable to run pipeline scanner", errors);
+                }
+            } catch (IOException e) {
+                throw new VeracodePipelineScanException("Unable to read errors in pipeline scanner", e);
+            }
+            return process.exitValue();
+        } catch (VeracodePipelineScanException e) {
+            e.showErrorMessage();
+            return Constants.SCAN_ERROR;
+        }
     }
 
     @NotNull
-    private String buildCommand(File pipelineScanner, ApplicationSettingsState applicationSettingsState) {
-        StringBuilder commandBuilder = new StringBuilder("java -jar \"" + pipelineScanner.getAbsolutePath() + "\" ");
+    private String buildCommand(File pipelineScanner, ApplicationSettingsState applicationSettingsState) throws VeracodePipelineScanException {
+        StringBuilder commandBuilder = new StringBuilder("java " + addProxySettingsIfNeeded(applicationSettingsState) +
+                "-jar \"" + pipelineScanner.getAbsolutePath() + "\" ");
         addCredentialsParameters(applicationSettingsState, commandBuilder);
         appendParameter(commandBuilder, "fail_on_severity", applicationSettingsState.getFailOnSeverity());
         appendParameter(commandBuilder, "file",
@@ -94,8 +132,23 @@ public class PipelineScanWrapper implements Closeable {
         return commandBuilder.toString();
     }
 
+    private String addProxySettingsIfNeeded(ApplicationSettingsState applicationSettingsState) {
+        if (!Strings.isNullOrEmpty(applicationSettingsState.getProxyHost())) {
+            return "-Dhttps.proxyHost=\"" + applicationSettingsState.getProxyHost() + "\"" +
+                    " -Dhttps.proxyPort=\"" + applicationSettingsState.getProxyPort() + "\"" +
+                    (!Strings.isNullOrEmpty(applicationSettingsState.getProxyUsername()) ?
+                            " -Dhttps.proxyUser=\"" + applicationSettingsState.getProxyUsername() + "\""
+                            : "") +
+                    (!Strings.isNullOrEmpty(applicationSettingsState.getProxyPassword()) ?
+                            " -Dhttps.proxyPassword=\"" + applicationSettingsState.getProxyPassword() + "\""
+                            : "") +
+                    " ";
+        }
+        return "";
+    }
+
     private void addCredentialsParameters(ApplicationSettingsState applicationSettingsState,
-                                          StringBuilder commandBuilder) {
+                                          StringBuilder commandBuilder) throws VeracodePipelineScanException {
         if (applicationSettingsState.getCredentialsType() == CredentialsTypeEnum.CredentialsFile) {
             VeracodeCredentials veracodeCredentials = getCredentialsFromFile(applicationSettingsState);
             appendParameter(commandBuilder, "veracode_api_id", veracodeCredentials.getApiId());
@@ -106,25 +159,25 @@ public class PipelineScanWrapper implements Closeable {
         }
     }
 
-    private VeracodeCredentials getCredentialsFromFile(ApplicationSettingsState applicationSettingsState) {
+    private VeracodeCredentials getCredentialsFromFile(ApplicationSettingsState applicationSettingsState) throws VeracodePipelineScanException {
         String userHome = System.getProperty("user.home");
         File credentialsFile = new File(new File(userHome, ".veracode"), "credentials");
         if (!credentialsFile.exists()) {
-            throw new RuntimeException("Credentials file not found at " +
+            throw new VeracodePipelineScanException("Issues preparing scanner", "Credentials file not found at " +
                     credentialsFile.getAbsolutePath());
         }
         try (FileReader fileReader = new FileReader(credentialsFile);
              BufferedReader bufferedReader = new BufferedReader(fileReader)) {
             return getCredentialsFromFile(credentialsFile, bufferedReader, applicationSettingsState);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new VeracodePipelineScanException("Unable to read credentials file", e);
         }
     }
 
     @NotNull
     private VeracodeCredentials getCredentialsFromFile(File credentialsFile,
                                                        BufferedReader bufferedReader,
-                                                       ApplicationSettingsState applicationSettingsState) throws IOException {
+                                                       ApplicationSettingsState applicationSettingsState) throws IOException, VeracodePipelineScanException {
         String apiId = null;
         String apiKey = null;
         boolean foundProfile = false;
@@ -146,8 +199,9 @@ public class PipelineScanWrapper implements Closeable {
             }
         }
         if (apiId == null || apiKey == null) {
-            throw new RuntimeException("Unable to find profile " + applicationSettingsState.getCredentialsProfileName() +
-                    " in the credentials file at: " + credentialsFile.getAbsolutePath());
+            throw new VeracodePipelineScanException("Issues preparing scanner",
+                    "Unable to find profile " + applicationSettingsState.getCredentialsProfileName() +
+                            " in the credentials file at: " + credentialsFile.getAbsolutePath());
         }
         return new VeracodeCredentials(apiId, apiKey);
     }
@@ -162,5 +216,9 @@ public class PipelineScanWrapper implements Closeable {
 
     private void appendParameter(StringBuilder commandBuilder, String parameterName, String parameterValue) {
         commandBuilder.append("--").append(parameterName).append(' ').append('"').append(parameterValue).append('"').append(' ');
+    }
+
+    public boolean isEmptyWrapper() {
+        return this.isEmptyWrapper;
     }
 }

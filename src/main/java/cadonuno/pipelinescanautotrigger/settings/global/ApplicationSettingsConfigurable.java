@@ -42,6 +42,11 @@ public class ApplicationSettingsConfigurable implements Configurable {
         modified |= applicationSettingsComponent.isShouldFailOnInformational() != settings.isShouldFailOnInformational();
         modified |= applicationSettingsComponent.getCredentialsType() != settings.getCredentialsType();
         modified |= !applicationSettingsComponent.getCredentialsProfileName().equals(settings.getCredentialsProfileName());
+        modified |= !applicationSettingsComponent.getProxyHost().equals(settings.getProxyHost());
+        modified |= !applicationSettingsComponent.getProxyPort().equals(settings.getProxyPort());
+        modified |= !applicationSettingsComponent.getProxyUsername().equals(settings.getProxyUsername());
+        modified |= !applicationSettingsComponent.getProxyPassword().equals(settings.getProxyPassword());
+        modified |= !applicationSettingsComponent.getOptArgs().equals(settings.getOptArgs());
         return modified;
     }
 
@@ -57,6 +62,11 @@ public class ApplicationSettingsConfigurable implements Configurable {
         settings.setShouldFailOnInformational(applicationSettingsComponent.isShouldFailOnInformational());
         settings.setCredentialsType(applicationSettingsComponent.getCredentialsType());
         settings.setCredentialsProfileName(applicationSettingsComponent.getCredentialsProfileName());
+        settings.setProxyHost(applicationSettingsComponent.getProxyHost());
+        settings.setProxyPort(applicationSettingsComponent.getProxyPort());
+        settings.setProxyUsername(applicationSettingsComponent.getProxyUsername());
+        settings.setProxyPassword(applicationSettingsComponent.getProxyPassword());
+        settings.setOptArgs(applicationSettingsComponent.getOptArgs());
     }
 
     @Override
@@ -71,6 +81,11 @@ public class ApplicationSettingsConfigurable implements Configurable {
         applicationSettingsComponent.setShouldFailOnInformational(settings.isShouldFailOnInformational());
         applicationSettingsComponent.setCredentialsType(settings.getCredentialsType());
         applicationSettingsComponent.setCredentialsProfileName(settings.getCredentialsProfileName());
+        applicationSettingsComponent.setProxyHost(settings.getProxyHost());
+        applicationSettingsComponent.setProxyPort(settings.getProxyPort());
+        applicationSettingsComponent.setProxyUsername(settings.getProxyUsername());
+        applicationSettingsComponent.setProxyPassword(settings.getProxyPassword());
+        applicationSettingsComponent.setOptArgs(settings.getOptArgs());
     }
 
     @Override

@@ -1,5 +1,7 @@
 package cadonuno.pipelinescanautotrigger.util;
 
+import cadonuno.pipelinescanautotrigger.exceptions.VeracodePipelineScanException;
+
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -7,11 +9,11 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 public class ZipHandler {
-    public static void unzipFile(File fileToUnzip) {
+    public static void unzipFile(File fileToUnzip) throws VeracodePipelineScanException {
         try (InputStream fileInputStream = new FileInputStream(fileToUnzip)) {
             ZipHandler.unzipFile(fileInputStream, new File(fileToUnzip.getParent()));
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new VeracodePipelineScanException("Unable to unzip pipeline scanner file", e);
         }
     }
 
