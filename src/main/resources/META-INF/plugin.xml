@@ -1,5 +1,5 @@
 <idea-plugin>
-    <id>com.example.pipeline-scan-autotrigger</id>
+    <id>cadonuno.pipelinescanautotrigger</id>
 
     <name>Veracode Pipeline Scan Auto-Trigger</name>
 
