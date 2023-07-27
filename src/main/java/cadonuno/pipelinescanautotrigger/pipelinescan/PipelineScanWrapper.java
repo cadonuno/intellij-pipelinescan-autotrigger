@@ -8,6 +8,7 @@ import cadonuno.pipelinescanautotrigger.settings.credentials.VeracodeCredentials
 import cadonuno.pipelinescanautotrigger.settings.global.ApplicationSettingsState;
 import cadonuno.pipelinescanautotrigger.settings.project.ProjectSettingsState;
 import cadonuno.pipelinescanautotrigger.util.Constants;
+import cadonuno.pipelinescanautotrigger.util.ScanDirectoryUtil;
 import cadonuno.pipelinescanautotrigger.util.ZipHandler;
 import com.google.common.base.Strings;
 import com.intellij.openapi.diagnostic.Logger;
@@ -21,27 +22,27 @@ import java.net.URL;
 public class PipelineScanWrapper implements Closeable {
     private static final Logger LOG = Logger.getInstance(PipelineScanWrapper.class);
     private static final String FILE_URL = "https://downloads.veracode.com/securityscan/pipeline-scan-LATEST.zip";
-    private static final String VERACODE_PIPELINE_SCAN_DIRECTORY = "Veracode-pipelinescan";
-    private static final String ZIP_FILE = VERACODE_PIPELINE_SCAN_DIRECTORY + "/pipeline-scan-LATEST.zip";
     private static final int CONNECT_TIMEOUT = 1000;
     private static final int READ_TIMEOUT = 1000;
     private static final PipelineScanWrapper EMPTY_WRAPPER = new PipelineScanWrapper();
     private final String baseDirectory;
     private final ProjectSettingsState projectSettingsState;
     private final boolean isEmptyWrapper;
+    private int scanReturnCode;
 
-    //EMTPY WRAPPER
+    //EMPTY WRAPPER
     private PipelineScanWrapper() {
         baseDirectory = null;
         projectSettingsState = null;
         isEmptyWrapper = true;
+        scanReturnCode = Constants.EMPTY_WRAPPER_ERROR;
     }
 
     private PipelineScanWrapper(String baseDirectory, ProjectSettingsState projectSettingsState) throws VeracodePipelineScanException {
         this.baseDirectory = baseDirectory;
         this.projectSettingsState = projectSettingsState;
         cleanupDirectory(baseDirectory);
-        File pipelineScannerZipLocation = new File(baseDirectory, ZIP_FILE);
+        File pipelineScannerZipLocation = ScanDirectoryUtil.getZipFile(baseDirectory);
         downloadZip(pipelineScannerZipLocation);
         ZipHandler.unzipFile(pipelineScannerZipLocation);
         isEmptyWrapper = false;
@@ -77,7 +78,7 @@ public class PipelineScanWrapper implements Closeable {
     }
 
     public static void cleanupDirectory(String baseDirectory) {
-        File pipelineScanDirectory = new File(baseDirectory, VERACODE_PIPELINE_SCAN_DIRECTORY);
+        File pipelineScanDirectory = ScanDirectoryUtil.getScanDirectory(baseDirectory);
         if (pipelineScanDirectory.exists()) {
             try {
                 FileUtils.deleteDirectory(pipelineScanDirectory);
@@ -87,14 +88,16 @@ public class PipelineScanWrapper implements Closeable {
         }
     }
 
-    public int startScan(ApplicationSettingsState applicationSettingsState,
-                         PipelineScanAutoPrePushHandler pipelineScanAutoPrePushHandler) {
+    public void runScan(ApplicationSettingsState applicationSettingsState,
+                        PipelineScanAutoPrePushHandler pipelineScanAutoPrePushHandler) {
         try {
+            File scanDirectory = ScanDirectoryUtil.getScanDirectory(baseDirectory);
             Process process = OsCommandRunner.runCommand("pipeline scan",
-                    buildCommand(new File(new File(baseDirectory, VERACODE_PIPELINE_SCAN_DIRECTORY), "pipeline-scan.jar"),
-                            applicationSettingsState), pipelineScanAutoPrePushHandler);
+                    buildCommand(new File(scanDirectory, "pipeline-scan.jar"),
+                            applicationSettingsState), scanDirectory, pipelineScanAutoPrePushHandler);
             if (process.exitValue() == 0) {
-                return 0;
+                scanReturnCode = 0;
+                return;
             }
             try {
                 String errors = OsCommandRunner.readErrorLog(process);
@@ -104,10 +107,10 @@ public class PipelineScanWrapper implements Closeable {
             } catch (IOException e) {
                 throw new VeracodePipelineScanException("Unable to read errors in pipeline scanner", e);
             }
-            return process.exitValue();
+            scanReturnCode = process.exitValue();
         } catch (VeracodePipelineScanException e) {
             e.showErrorMessage();
-            return Constants.SCAN_ERROR;
+            scanReturnCode = Constants.SCAN_ERROR;
         }
     }
 
@@ -220,5 +223,9 @@ public class PipelineScanWrapper implements Closeable {
 
     public boolean isEmptyWrapper() {
         return this.isEmptyWrapper;
+    }
+
+    public int getScanReturnCode() {
+        return scanReturnCode;
     }
 }

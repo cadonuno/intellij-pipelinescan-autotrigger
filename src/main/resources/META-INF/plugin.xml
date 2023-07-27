@@ -5,16 +5,36 @@
 
     <vendor email="rpereira@veracode.com">Ricardo Pereira</vendor>
 
-    <description>Automatically triggers a Veracode Pipeline Scan before pushing to a repository</description>
-
+    <description>
+        <![CDATA[
+        Allows for calling and viewing results of Veracode pipeline scans on IntelliJ.
+        <h4>Requires a Veracode Static Analysis license.</h4>
+        <h3>Requirements:</h3>
+        <ul>
+          <li>Java installed</li>
+          <li>A Veracode SAST subscription</li>
+        </ul>
+        <h3>Instructions:</h3>
+        <ul>
+          <li>After installing the extensions, you should have, under File->Settings, a <b>Veracode Pipeline Scan</b> option.</li>
+          <li>The <b>Global Settings</b> contain your authentication configuration, the Scan Fail Criteria, and the proxy configuration.</li>
+          <li><b>Project Settings</b> lets you set up project-specific configuration, mainly the build command and file to scan.</li>
+          <li>You can enable automatic scans on <b>git push</b>. If the scan fails or has any violating findings, you will be prompted to continue the push.</li>
+          <li>You can start a scan from the <b>Veracode Pipeline Scan Results</b> tab.</li>
+          <li>The results will show up once the scan is completed.</description></li>
+        </ul>
+        <br/>
+        You can send questions and feedback through the Report Issue feature.
+      ]]>
+    </description>
     <depends>com.intellij.modules.platform</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow id="Veracode Pipeline Scan Results"  icon="/META-INF/veracode-pipeline-logo.png"
+        <toolWindow id="Veracode Pipeline Scan Results"  icon="/META-INF/VPSSmallicon2.png"
                     anchor="bottom"
                     factoryClass="cadonuno.pipelinescanautotrigger.ui.scanresults.PipelineScanResultsBarToolWindowFactory"/>
 
-        <toolWindow id="Veracode Pipeline Scan Issue Details"  icon="/META-INF/veracode-pipeline-logo.png"
+        <toolWindow id="Veracode Pipeline Scan Issue Details"  icon="/META-INF/VPSSmallicon2.png"
                     anchor="right"
                     factoryClass="cadonuno.pipelinescanautotrigger.ui.issuedetails.IssueDetailsToolWindow"/>
 
@@ -49,4 +69,14 @@
             <implementation-class>cadonuno.pipelinescanautotrigger.settings.project.ProjectSettingsComponent</implementation-class>
         </component>
     </project-components>
+    <change-notes>
+        <![CDATA[
+        <ul>
+            <li>Added support for v2023.</li>
+            <li>Added highlighting of issues when navigating to them.</li>
+            <li>Added environment variable context to the build and scan commands (no longer requires a full path to Ant/Maven/Gradle executables).</li>
+            <li>Added folder context to the build and scan commands (no longer requires a full path to the Ant/Gradle/Maven configuration file).</li>
+        </ul>
+        ]]>
+    </change-notes>
 </idea-plugin>

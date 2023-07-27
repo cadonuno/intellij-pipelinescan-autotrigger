@@ -15,6 +15,11 @@ import cadonuno.pipelinescanautotrigger.pipelinescan.PipelineScanFinding;
 import cadonuno.pipelinescanautotrigger.settings.project.ProjectSettingsState;
 import cadonuno.pipelinescanautotrigger.ui.issuedetails.IssueDetailsToolWindow;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.editor.markup.MarkupModel;
+import com.intellij.openapi.editor.markup.RangeHighlighter;
+import com.intellij.openapi.editor.markup.TextAttributes;
+import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.progress.ProcessCanceledException;
 import com.intellij.openapi.progress.ProgressManager;
@@ -36,6 +41,7 @@ import com.intellij.uiDesigner.core.GridConstraints;
 import com.intellij.uiDesigner.core.GridLayoutManager;
 import com.intellij.util.concurrency.SwingWorker;
 import com.intellij.util.ui.JBUI;
+import org.jdesktop.swingx.JXComboBox;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
@@ -87,6 +93,25 @@ public class PipelineScanResultsBarToolWindowFactory implements ToolWindowFactor
             return true;
         }
     };
+    private static final Color PURPLE_COLOUR = new Color(70, 0, 90);
+    private static final Color RED_COLOUR = new Color(90, 0, 0);
+    private static final TextAttributes VERY_HIGH_TEXT_ATTRIBUTES = makeTextAttributes(new JBColor(PURPLE_COLOUR,
+            PURPLE_COLOUR));
+    private static final TextAttributes HIGH_TEXT_ATTRIBUTES = makeTextAttributes(new JBColor(RED_COLOUR,
+            RED_COLOUR));
+    private static final TextAttributes MEDIUM_TEXT_ATTRIBUTES = makeTextAttributes(JBColor.ORANGE);
+    private static final TextAttributes LOW_TEXT_ATTRIBUTES = makeTextAttributes(JBColor.YELLOW);
+    private static final TextAttributes INFORMATIONAL_TEXT_ATTRIBUTES = makeTextAttributes(JBColor.CYAN);
+    private MarkupModel lastMarkup;
+    private RangeHighlighter lastHighlighter;
+
+    private static TextAttributes makeTextAttributes(Color colour) {
+        TextAttributes attributes = new TextAttributes();
+        attributes.setErrorStripeColor(colour);
+        attributes.setEffectColor(colour);
+        attributes.setBackgroundColor(colour);
+        return attributes;
+    }
 
     private static Color defaultColor = null;
     private static Integer defaultWidth = null;
@@ -139,7 +164,7 @@ public class PipelineScanResultsBarToolWindowFactory implements ToolWindowFactor
                                 progressWindow.dispose();
                                 Optional.ofNullable(projectToToolWindowMap.get(project))
                                         .ifPresent(windowOwner -> windowOwner.setScanButtonsEnabled(true));
-                    });
+                            });
                 });
     }
 
@@ -312,7 +337,7 @@ public class PipelineScanResultsBarToolWindowFactory implements ToolWindowFactor
         }
         TableModel tableModel = clickedTable.getModel();
         if (col == DETAILS_COLUMN_INDEX) {
-            Optional.ofNullable(detailsMap.get((long) tableModel.getValueAt(row, 0)))
+            Optional.ofNullable(detailsMap.get((long) tableModel.getValueAt(row, FindingResultsTableModel.ISSUE_DETAILS_COLUMN_INDEX)))
                     .ifPresent(detailsHtml -> IssueDetailsToolWindow.getCurrentOrMakeNewInstance()
                             .setDetailsAndShow(project, detailsHtml));
 
@@ -322,8 +347,8 @@ public class PipelineScanResultsBarToolWindowFactory implements ToolWindowFactor
     }
 
     private void jumpToFinding(Project project, JBTable clickedTable, int row) {
-        String fileName = (String) clickedTable.getModel().getValueAt(row, 5);
-        long lineNumber = (long) clickedTable.getModel().getValueAt(row, 6);
+        String fileName = (String) clickedTable.getModel().getValueAt(row, FindingResultsTableModel.FILE_NAME_COLUMN_INDEX);
+        long lineNumber = (long) clickedTable.getModel().getValueAt(row, FindingResultsTableModel.LINE_NUMBER_COLUMN_INDEX);
         PsiFile[] psiFile;
 
         if (fileName.contains("/")) {
@@ -345,6 +370,38 @@ public class PipelineScanResultsBarToolWindowFactory implements ToolWindowFactor
         OpenFileDescriptor desc =
                 new OpenFileDescriptor(project, issueFile.getVirtualFile(), (int) (lineNumber - 1), 0);
         desc.navigate(true);
+        //TODO: colour the selected line
+        if (lastMarkup != null && lastHighlighter != null) {
+            lastMarkup.removeHighlighter(lastHighlighter);
+        }
+        lastMarkup = null;
+        lastHighlighter = null;
+
+        getAttributesForSeverity((String) clickedTable.getModel().getValueAt(row, FindingResultsTableModel.SEVERITY_COLUMN_INDEX))
+                .ifPresent((textAttributes ->
+                        Optional.ofNullable(FileEditorManager.getInstance(project).getSelectedTextEditor())
+                                .map(Editor::getMarkupModel)
+                                .ifPresent(markupModel -> {
+                                    lastMarkup = markupModel;
+                                    lastHighlighter = markupModel.addLineHighlighter((int) (lineNumber - 1), 1, textAttributes);
+                                })));
+
+    }
+
+    private Optional<TextAttributes> getAttributesForSeverity(String severity) {
+        switch (severity) {
+            case "Very High":
+                return Optional.of(VERY_HIGH_TEXT_ATTRIBUTES);
+            case "High":
+                return Optional.of(HIGH_TEXT_ATTRIBUTES);
+            case "Medium":
+                return Optional.of(MEDIUM_TEXT_ATTRIBUTES);
+            case "Low":
+                return Optional.of(LOW_TEXT_ATTRIBUTES);
+            case "Informational":
+                return Optional.of(INFORMATIONAL_TEXT_ATTRIBUTES);
+        }
+        return Optional.empty();
     }
 
     public void updateResultsForProject(Project project, List<PipelineScanFinding> results,

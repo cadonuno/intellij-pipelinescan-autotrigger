@@ -4,22 +4,25 @@ import cadonuno.pipelinescanautotrigger.PipelineScanAutoPrePushHandler;
 import cadonuno.pipelinescanautotrigger.exceptions.VeracodePipelineScanException;
 import com.google.common.base.Strings;
 import com.intellij.openapi.diagnostic.Logger;
+import io.netty.util.internal.PlatformDependent;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class OsCommandRunner {
     private static final Logger LOG = Logger.getInstance(OsCommandRunner.class);
 
-    public static Process runCommand(String title, String commandToRun,
-                                 PipelineScanAutoPrePushHandler pipelineScanAutoPrePushHandler) throws VeracodePipelineScanException {
+    public static Process runCommand(String title, String commandToRun, File workDirectory,
+                                     PipelineScanAutoPrePushHandler pipelineScanAutoPrePushHandler) throws VeracodePipelineScanException {
         Process process;
-        ProcessBuilder processBuilder = new ProcessBuilder(convertCommandToArray(commandToRun));
-                //.redirectErrorStream(true);
+        ProcessBuilder processBuilder = new ProcessBuilder(convertCommandToArray(commandToRun))
+                .directory(workDirectory);
         try {
             LOG.info("Running " + title);
             LOG.debug(commandToRun);
@@ -48,7 +51,10 @@ public class OsCommandRunner {
     private static String[] convertCommandToArray(String commandToRun) {
         String[] splitBySpaces = commandToRun.split(" ");
         LOG.info("Building command: " + commandToRun);
-        List<String> parametersAsList = new ArrayList<>();
+        List<String> parametersAsList = new ArrayList<>(
+                PlatformDependent.isWindows()
+                        ? Arrays.asList("cmd.exe", "/C")
+                        : Arrays.asList("sh", "-c"));
         String buffer = "";
         for (String element : splitBySpaces) {
             if ("".equals(buffer)) {

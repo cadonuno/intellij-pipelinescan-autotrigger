@@ -5,6 +5,10 @@ import javax.swing.table.DefaultTableModel;
 public class FindingResultsTableModel extends DefaultTableModel {
 
     public static final String DETAILS_COLUMN_IDENTIFIER = "Details";
+    public static final int ISSUE_DETAILS_COLUMN_INDEX = 0;
+    public static final int SEVERITY_COLUMN_INDEX = 1;
+    public static final int FILE_NAME_COLUMN_INDEX = 5;
+    public static final int LINE_NUMBER_COLUMN_INDEX = 6;
 
     public FindingResultsTableModel() {
         String[] columnNames = new String[]{

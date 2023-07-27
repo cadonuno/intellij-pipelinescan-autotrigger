@@ -9,6 +9,7 @@ import cadonuno.pipelinescanautotrigger.settings.project.ProjectSettingsState;
 import cadonuno.pipelinescanautotrigger.ui.MessageHandler;
 import cadonuno.pipelinescanautotrigger.ui.scanresults.PipelineScanResultsBarToolWindowFactory;
 import cadonuno.pipelinescanautotrigger.util.Constants;
+import cadonuno.pipelinescanautotrigger.util.ScanDirectoryUtil;
 import com.google.common.base.Strings;
 import com.intellij.dvcs.push.PrePushHandler;
 import com.intellij.dvcs.push.PushInfo;
@@ -26,7 +27,6 @@ import org.jetbrains.annotations.NotNull;
 import javax.swing.JOptionPane;
 import javax.swing.Timer;
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public class PipelineScanAutoPrePushHandler implements PrePushHandler {
@@ -113,7 +113,7 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
 
         progressMultiplier = progressIndicator instanceof BackgroundableProcessIndicator
                 ? 1 : 2;
-        setupScan(progressIndicator, project);
+        setupScan(progressIndicator);
         try {
             return buildApplicationIfNecessary()
                     .map(this::runScan)
@@ -123,13 +123,13 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
         }
     }
 
-    private void setupScan(@NotNull ProgressIndicator progressIndicator, Project project) {
+    private void setupScan(@NotNull ProgressIndicator progressIndicator) {
         PipelineScanWrapper.cleanupDirectory(baseDirectory);
         this.progressIndicator = progressIndicator;
         messageQueue = "";
         setCurrentFraction(.0d);
         setMessage(INITIAL_MESSAGE);
-        setupTimer(project);
+        setupTimer();
         maxFraction = BUILD_STEP_MAX_FRACTION;
         currentIncrement = 0.003;
     }
@@ -141,7 +141,7 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
             setMessage(BUILDING_APPLICATION_MESSAGE);
             try {
                 Process process = OsCommandRunner.runCommand("Application Build",
-                        projectSettingsState.getBuildCommand(), this);
+                        projectSettingsState.getBuildCommand(), new File(baseDirectory), this);
                 if (process.exitValue() != 0) {
                     try {
                         MessageHandler.showErrorPopup(VERACODE_PIPELINE_SCAN + "Unable to build application!", OsCommandRunner.readErrorLog(process));
@@ -163,27 +163,29 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
         maxFraction = UPLOADING_FILES_MAX_FRACTION;
         setCurrentFraction(BUILD_STEP_MAX_FRACTION);
 
-        int scanReturnCode = runPipelineScan(applicationSettingsState);
-        if (scanReturnCode == Constants.UNABLE_TO_START_ERROR) {
-            return Result.ABORT;
-        }
-        maxFraction = FULL_PROGRESS_BAR;
-        setCurrentFraction(FULL_PROGRESS_BAR);
-        readResults();
-        if (timer.isRunning()) {
-            timer.stop();
-        }
-        if (scanReturnCode != 0) {
-            boolean shouldContinue = showScanFailedMessageAndGetStatus(scanReturnCode);
-            if (shouldContinue) {
-                return Result.OK;
+        try (PipelineScanWrapper scanWrapper = runPipelineScan(applicationSettingsState)) {
+            int scanReturnCode = scanWrapper.getScanReturnCode();
+            if (scanReturnCode == Constants.UNABLE_TO_START_ERROR) {
+                return Result.ABORT;
             }
-            return Result.ABORT;
+            maxFraction = FULL_PROGRESS_BAR;
+            setCurrentFraction(FULL_PROGRESS_BAR);
+            readResults();
+            if (timer.isRunning()) {
+                timer.stop();
+            }
+            if (scanReturnCode != 0) {
+                boolean shouldContinue = showScanFailedMessageAndGetStatus(scanReturnCode);
+                if (shouldContinue) {
+                    return Result.OK;
+                }
+                return Result.ABORT;
+            }
+            if (progressIndicator instanceof BackgroundableProcessIndicator) {
+                MessageHandler.showMessagePopup("Scan finished, no" + getNewIssuesMessageSection() + " found");
+            }
+            return Result.OK;
         }
-        if (progressIndicator instanceof BackgroundableProcessIndicator) {
-            MessageHandler.showMessagePopup("Scan finished, no" + getNewIssuesMessageSection() + " found");
-        }
-        return Result.OK;
     }
 
     private boolean showScanFailedMessageAndGetStatus(int scanReturnCode) {
@@ -215,7 +217,7 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
     @NotNull
     private List<PipelineScanFinding> getAllFindings(String resultsFileName) {
         List<PipelineScanFinding> allFindings = new ArrayList<>();
-        File resultsFile = new File(resultsFileName);
+        File resultsFile = new File(ScanDirectoryUtil.getScanDirectory(baseDirectory), resultsFileName);
         if (!resultsFile.exists()) {
             return allFindings;
         }
@@ -257,13 +259,10 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
                 .orElse(0);
     }
 
-    private void setupTimer(Project project) {
+    private void setupTimer() {
         timer = new Timer(400, actionEvent -> {
             if (progressIndicator.isCanceled()) {
                 progressIndicator.setText2("Cancelling scan");
-                /*if (progressIndicator instanceof BackgroundableProcessIndicator) {
-                    PipelineScanResultsBarToolWindowFactory.closeProgressWindow(project);
-                }*/
             }
             progressIndicator.setText(runningMessage + ELIPSIS_SET[elipsisIndex]);
             updateProgressIndicator();
@@ -315,30 +314,28 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
         return hasAddedASeverity ? scanFailCriteriaForErrorMessage.toString() : "";
     }
 
-    private boolean addForSeverityIfNecessary(boolean isEvaluatingSeverity, boolean hasAddedASeverity,
-                                              StringBuilder scanFailCriteriaForErrorMessage, String Low) {
-        if (isEvaluatingSeverity) {
+    private boolean addForSeverityIfNecessary(boolean toEvaluate, boolean hasAddedASeverity,
+                                              StringBuilder scanFailCriteriaForErrorMessage, String severity) {
+        if (toEvaluate) {
             if (hasAddedASeverity) {
                 scanFailCriteriaForErrorMessage.append(", ");
             }
-            scanFailCriteriaForErrorMessage.append(Low);
+            scanFailCriteriaForErrorMessage.append(severity);
             hasAddedASeverity = true;
         }
         return hasAddedASeverity;
     }
 
-    private int runPipelineScan(ApplicationSettingsState applicationSettingsState) {
-        int scanReturnCode;
+    private PipelineScanWrapper runPipelineScan(ApplicationSettingsState applicationSettingsState) {
         currentIncrement = 0.1d;
         setMessage(SETTING_UP_PIPELINE_SCANNER_MESSAGE);
-        try (PipelineScanWrapper pipelineScanWrapper = PipelineScanWrapper.acquire(baseDirectory, projectSettingsState)) {
-            if (pipelineScanWrapper.isEmptyWrapper()) {
-                return Constants.EMPTY_WRAPPER_ERROR;
-            }
-            setMessage(RUNNING_PIPELINE_SCAN_UPLOADING_FILES_MESSAGE);
-            scanReturnCode = pipelineScanWrapper.startScan(applicationSettingsState, this);
+        PipelineScanWrapper pipelineScanWrapper = PipelineScanWrapper.acquire(baseDirectory, projectSettingsState);
+        if (pipelineScanWrapper.isEmptyWrapper()) {
+            return pipelineScanWrapper;
         }
-        return scanReturnCode;
+        setMessage(RUNNING_PIPELINE_SCAN_UPLOADING_FILES_MESSAGE);
+        pipelineScanWrapper.runScan(applicationSettingsState, this);
+        return pipelineScanWrapper;
     }
 
     private boolean getConfirmationDialogOutput(String aMessage) {
