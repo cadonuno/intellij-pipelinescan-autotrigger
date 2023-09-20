@@ -70,13 +70,6 @@
         </component>
     </project-components>
     <change-notes>
-        <![CDATA[
-        <ul>
-            <li>Added support for v2023.</li>
-            <li>Added highlighting of issues when navigating to them.</li>
-            <li>Added environment variable context to the build and scan commands (no longer requires a full path to Ant/Maven/Gradle executables).</li>
-            <li>Added folder context to the build and scan commands (no longer requires a full path to the Ant/Gradle/Maven configuration file).</li>
-        </ul>
-        ]]>
+
     </change-notes>
 </idea-plugin>
