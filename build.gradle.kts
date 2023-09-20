@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "cadonuno.pipelinescanautotrigger"
-version = "1.1"
+version = "1.3"
 
 repositories {
     mavenCentral()

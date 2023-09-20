@@ -1,15 +1,21 @@
 package cadonuno.pipelinescanautotrigger.settings.global;
 
 import cadonuno.pipelinescanautotrigger.settings.credentials.CredentialsTypeEnum;
+import cadonuno.pipelinescanautotrigger.settings.util.InterfaceBuilder;
+import cadonuno.pipelinescanautotrigger.settings.util.JLinkLabel;
 import com.intellij.ui.JBSplitter;
 import com.intellij.ui.components.JBCheckBox;
 import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBPasswordField;
 import com.intellij.ui.components.JBTextField;
 import com.intellij.util.ui.FormBuilder;
+import org.jdesktop.swingx.VerticalLayout;
 
-import javax.swing.JComponent;
-import javax.swing.JPanel;
+import javax.swing.*;
+import javax.swing.border.BevelBorder;
+import java.awt.*;
+import java.util.Arrays;
+import java.util.List;
 
 public class ApplicationSettingsComponent {
     private final JPanel mainPanel;
@@ -28,6 +34,8 @@ public class ApplicationSettingsComponent {
     private final JBCheckBox lowSeverityCheckBox = new JBCheckBox("Low");
     private final JBCheckBox informationalSeverityCheckBox = new JBCheckBox("Informational");
 
+    private final JBTextField policyToEvaluateField = new JBTextField();
+
     // Proxy Settings
     private final JBTextField proxyHostField = new JBTextField();
     private final JBTextField proxyPortField = new JBTextField();
@@ -39,55 +47,58 @@ public class ApplicationSettingsComponent {
 
     public ApplicationSettingsComponent() {
         JPanel credentialProfilePanel = FormBuilder.createFormBuilder()
-                .addLabeledComponent("Credentials profile name:", credentialsProfileNameField)
+                .addComponent(InterfaceBuilder.makeLabelWithSupportingLink("Credentials profile name: ",
+                        "Configuring an API credentials file",
+                        "https://docs.veracode.com/r/c_configure_api_cred_file"))
+                .addComponent(credentialsProfileNameField)
                 .addComponentFillVertically(new JPanel(), 0)
                 .getPanel();
 
         JPanel credentialLiteralsPanel = FormBuilder.createFormBuilder()
-                .addLabeledComponent("API ID:", apiIdField)
-                .addLabeledComponent("API key:", apiKeyField)
+                .addLabeledComponent("API ID:", apiIdField, true)
+                .addLabeledComponent("API key:", apiKeyField, true)
                 .addComponentFillVertically(new JPanel(), 0)
                 .getPanel();
 
         JPanel credentialsTypePanel = FormBuilder.createFormBuilder()
+                .addComponent(InterfaceBuilder.makeLabelWithSupportingLink("API credentials: ",
+                        "How to generate API credentials",
+                        "https://docs.veracode.com/r/t_create_api_creds"))
                 .addComponent(credentialsFileCheckBox)
                 .addComponent(credentialsInIdeCheckBox)
                 .addComponent(credentialLiteralsPanel)
                 .addComponent(credentialProfilePanel)
                 .addComponentFillVertically(new JPanel(), 0)
                 .getPanel();
-        JPanel severitiesToFailPanel = FormBuilder.createFormBuilder()
-                .addComponent(veryHighSeverityCheckBox)
-                .addComponent(highSeverityCheckBox)
-                .addComponent(mediumSeverityCheckBox)
-                .addComponent(lowSeverityCheckBox)
-                .addComponent(informationalSeverityCheckBox)
-                .addComponentFillVertically(new JPanel(), 0)
-                .getPanel();
+
 
         JPanel proxySettingsPanel = FormBuilder.createFormBuilder()
-                .addLabeledComponent("Proxy host:", proxyHostField)
-                .addLabeledComponent("Proxy port:", proxyPortField)
-                .addLabeledComponent("Proxy username:", proxyUsernameField)
-                .addLabeledComponent("Proxy password:", proxyPasswordField)
+                .addLabeledComponent("Proxy host:", proxyHostField, true)
+                .addLabeledComponent("Proxy port:", proxyPortField, true)
+                .addLabeledComponent("Proxy username:", proxyUsernameField, true)
+                .addLabeledComponent("Proxy password:", proxyPasswordField, true)
                 .addComponentFillVertically(new JPanel(), 0)
                 .getPanel();
 
         JPanel advancedSettingsPanel = FormBuilder.createFormBuilder()
-                .addLabeledComponent("Optional arguments:", optArgsField)
+                .addLabeledComponent("Optional arguments:", optArgsField, true)
                 .addComponentFillVertically(new JPanel(), 0)
                 .getPanel();
 
         mainPanel = FormBuilder.createFormBuilder()
-                .addLabeledComponent(new JBLabel("API credentials: "), credentialsTypePanel, 0, true)
+                .addComponent(InterfaceBuilder.addBorderToPanel(credentialsTypePanel), 1)
                 .addComponent(new JBSplitter())
-                .addLabeledComponent(new JBLabel("Severities to fail scan: "), severitiesToFailPanel, 1, true)
+                .addLabeledComponent(new JBLabel("Failure criteria: "),
+                        InterfaceBuilder.addBorderToPanel(getFailureCriteriaComponent()), 1, true)
                 .addComponent(new JBSplitter())
-                .addLabeledComponent(new JBLabel("Proxy settings: "), proxySettingsPanel, 0, true)
+                .addLabeledComponent(new JBLabel("Proxy settings: "),
+                        InterfaceBuilder.addBorderToPanel(proxySettingsPanel), 1, true)
                 .addComponent(new JBSplitter())
-                .addLabeledComponent(new JBLabel("Advanced settings: "), advancedSettingsPanel, 0, true)
+                .addLabeledComponent(new JBLabel("Advanced settings: "),
+                        InterfaceBuilder.addBorderToPanel(advancedSettingsPanel), 1, true)
                 .addComponentFillVertically(new JPanel(), 0)
                 .getPanel();
+
         credentialsFileCheckBox.addChangeListener(e -> {
             if (credentialsFileCheckBox.isSelected()) {
                 credentialsInIdeCheckBox.setSelected(false);
@@ -104,6 +115,41 @@ public class ApplicationSettingsComponent {
             }
         });
     }
+
+    private JPanel getFailureCriteriaComponent() {
+        return buildIndentedPanel(Arrays.asList(new JLabel("Severities: "),
+                getSeveritiesPanel(),
+                new JLabel("Policy to evaluate: "),
+                policyToEvaluateField));
+    }
+
+    private JPanel buildIndentedPanel(List<JComponent> internalElements) {
+        JPanel externalPanel = new JPanel();
+        externalPanel.setLayout(new BoxLayout(externalPanel, BoxLayout.X_AXIS));
+        externalPanel.setBorder(BorderFactory.createEmptyBorder(0, 20, 0, 0));
+        externalPanel.add(makeInternalPanel(internalElements));
+        return externalPanel;
+    }
+
+    private Component makeInternalPanel(List<JComponent> internalElements) {
+        JPanel internalPanel = new JPanel();
+        internalPanel.setLayout(new VerticalLayout());
+
+        for (Component component : internalElements) {
+            internalPanel.add(component);
+        }
+
+        return internalPanel;
+    }
+
+    private JComponent getSeveritiesPanel() {
+        return buildIndentedPanel(Arrays.asList(veryHighSeverityCheckBox,
+                highSeverityCheckBox,
+                mediumSeverityCheckBox,
+                lowSeverityCheckBox,
+                informationalSeverityCheckBox));
+    }
+
 
     public JPanel getPanel() {
         return mainPanel;
@@ -133,6 +179,10 @@ public class ApplicationSettingsComponent {
         return informationalSeverityCheckBox.isSelected();
     }
 
+    public String getPolicyToEvaluate() {
+        return policyToEvaluateField.getText();
+    }
+
     public void setShouldFailOnVeryHigh(boolean shouldFailOnVeryHigh) {
         veryHighSeverityCheckBox.setSelected(shouldFailOnVeryHigh);
     }
@@ -151,6 +201,10 @@ public class ApplicationSettingsComponent {
 
     public void setShouldFailOnInformational(boolean shouldFailOnInformational) {
         informationalSeverityCheckBox.setSelected(shouldFailOnInformational);
+    }
+
+    public void setPolicyToEvaluate(String policyToEvaluate) {
+        policyToEvaluateField.setText(policyToEvaluate);
     }
 
     public String getApiIdText() {

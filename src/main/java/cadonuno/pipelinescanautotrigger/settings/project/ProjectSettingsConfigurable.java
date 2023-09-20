@@ -41,6 +41,7 @@ public class ProjectSettingsConfigurable implements Configurable {
         boolean modified = !projectSettingsComponent.getFileToScanText().equals(settings.getFileToScan());
         modified |= projectSettingsComponent.getBuildCommandText().equals(settings.getBuildCommand());
         modified |= projectSettingsComponent.getBaselineFileText().equals(settings.getBaselineFile());
+        modified |= projectSettingsComponent.getModuleSelectionText().equals(settings.getModuleSelection());
         modified |= projectSettingsComponent.isEnabled() != settings.isEnabled();
         modified |= projectSettingsComponent.isShouldScanOnPush() != settings.isShouldScanOnPush();
         return modified;
@@ -52,6 +53,7 @@ public class ProjectSettingsConfigurable implements Configurable {
         settings.setFileToScan(projectSettingsComponent.getFileToScanText());
         settings.setBuildCommand(projectSettingsComponent.getBuildCommandText());
         settings.setBaselineFile(projectSettingsComponent.getBaselineFileText());
+        settings.setModuleSelection(projectSettingsComponent.getModuleSelectionText());
         settings.setEnabled(projectSettingsComponent.isEnabled());
         settings.setShouldScanOnPush(projectSettingsComponent.isShouldScanOnPush());
     }
@@ -62,6 +64,7 @@ public class ProjectSettingsConfigurable implements Configurable {
         projectSettingsComponent.setFileToScanText(settings.getFileToScan());
         projectSettingsComponent.setBuildCommandText(settings.getBuildCommand());
         projectSettingsComponent.setBaselineFileText(settings.getBaselineFile());
+        projectSettingsComponent.setModuleSelectionText(settings.getModuleSelection());
         projectSettingsComponent.setEnabled(settings.isEnabled());
         projectSettingsComponent.setShouldScanOnPush(settings.isShouldScanOnPush());
     }

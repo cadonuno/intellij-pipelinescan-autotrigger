@@ -175,15 +175,8 @@ public class PipelineScanResultsBarToolWindowFactory implements ToolWindowFactor
     }
 
     private void initializeTables(Project project, ToolWindow toolWindow) {
-        JBTable allResultsTable = initializeResultsTable(ALL_FINDINGS);
         JBTable filteredResultsTable = initializeResultsTable(FINDINGS_VIOLATING_CRITERIA);
-
-        FindingsPanelOwner allFindingsPanelOwner = getFindingsPanel(project, allResultsTable);
-        Content allFindingsParent = toolWindow.getContentManager().getFactory()
-                .createContent(allFindingsPanelOwner.getPanel(),
-                        ALL_FINDINGS + " (0)",
-                        true);
-        toolWindow.getContentManager().addContent(allFindingsParent);
+        JBTable allResultsTable = initializeResultsTable(ALL_FINDINGS);
 
         FindingsPanelOwner filteredFindingsPanelOwner = getFindingsPanel(project, filteredResultsTable);
         Content filteredFindingsParent = toolWindow.getContentManager().getFactory()
@@ -196,9 +189,15 @@ public class PipelineScanResultsBarToolWindowFactory implements ToolWindowFactor
                 getResultsTableMouseListener(project, filteredResultsTable)
         );
 
+        FindingsPanelOwner allFindingsPanelOwner = getFindingsPanel(project, allResultsTable);
+        Content allFindingsParent = toolWindow.getContentManager().getFactory()
+                .createContent(allFindingsPanelOwner.getPanel(),
+                        ALL_FINDINGS + " (0)",
+                        true);
+        toolWindow.getContentManager().addContent(allFindingsParent);
+
         allResultsTable.addMouseListener(
                 getResultsTableMouseListener(project, allResultsTable));
-        toolWindow.getContentManager().addContent(filteredFindingsParent);
         projectToToolWindowMap.put(project, new ToolWindowOwner(project, toolWindow, allResultsTable,
                 filteredResultsTable, filteredFindingsParent, allFindingsParent,
                 allFindingsPanelOwner.getStartScanButton(),
@@ -370,7 +369,6 @@ public class PipelineScanResultsBarToolWindowFactory implements ToolWindowFactor
         OpenFileDescriptor desc =
                 new OpenFileDescriptor(project, issueFile.getVirtualFile(), (int) (lineNumber - 1), 0);
         desc.navigate(true);
-        //TODO: colour the selected line
         if (lastMarkup != null && lastHighlighter != null) {
             lastMarkup.removeHighlighter(lastHighlighter);
         }

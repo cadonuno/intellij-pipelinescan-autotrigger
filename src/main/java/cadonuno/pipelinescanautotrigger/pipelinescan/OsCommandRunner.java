@@ -6,39 +6,38 @@ import com.google.common.base.Strings;
 import com.intellij.openapi.diagnostic.Logger;
 import io.netty.util.internal.PlatformDependent;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class OsCommandRunner {
     private static final Logger LOG = Logger.getInstance(OsCommandRunner.class);
 
     public static Process runCommand(String title, String commandToRun, File workDirectory,
                                      PipelineScanAutoPrePushHandler pipelineScanAutoPrePushHandler) throws VeracodePipelineScanException {
-        Process process;
-        ProcessBuilder processBuilder = new ProcessBuilder(convertCommandToArray(commandToRun))
-                .directory(workDirectory);
+
+        LOG.info("Running " + title);
+        LOG.debug(commandToRun);
+        LOG.debug(workDirectory.getAbsolutePath());
         try {
-            LOG.info("Running " + title);
-            LOG.debug(commandToRun);
-            process = processBuilder.start();
-            try (BufferedReader bufferedReader = new BufferedReader(
-                    new InputStreamReader(process.getInputStream()))) {
+            Process process = new ProcessBuilder(convertCommandToArray(commandToRun))
+                    .directory(workDirectory).start();
+            try (BufferedReader inputStreamReader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
                 String line;
                 do {
-                    line = bufferedReader.readLine();
+                    line = inputStreamReader.readLine();
                     logLine(pipelineScanAutoPrePushHandler, line);
                 } while (line != null);
             }
-        } catch (IOException e) {
+            LOG.info("Waiting for process");
+            process.waitFor();
+            return process;
+        } catch (IOException | InterruptedException e) {
             throw new VeracodePipelineScanException(title, e);
         }
-        return process;
     }
 
     private static void logLine(PipelineScanAutoPrePushHandler pipelineScanAutoPrePushHandler, String line) {

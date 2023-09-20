@@ -92,8 +92,12 @@ public class PipelineScanWrapper implements Closeable {
                         PipelineScanAutoPrePushHandler pipelineScanAutoPrePushHandler) {
         try {
             File scanDirectory = ScanDirectoryUtil.getScanDirectory(baseDirectory);
+            if (!Strings.isNullOrEmpty(applicationSettingsState.getPolicyToEvaluate())) {
+                downloadPolicyFile(applicationSettingsState,
+                        scanDirectory, pipelineScanAutoPrePushHandler);
+            }
             Process process = OsCommandRunner.runCommand("pipeline scan",
-                    buildCommand(new File(scanDirectory, "pipeline-scan.jar"),
+                    buildScanCommand(new File(scanDirectory, "pipeline-scan.jar"),
                             applicationSettingsState), scanDirectory, pipelineScanAutoPrePushHandler);
             if (process.exitValue() == 0) {
                 scanReturnCode = 0;
@@ -114,12 +118,40 @@ public class PipelineScanWrapper implements Closeable {
         }
     }
 
-    @NotNull
-    private String buildCommand(File pipelineScanner, ApplicationSettingsState applicationSettingsState) throws VeracodePipelineScanException {
+    private void downloadPolicyFile(ApplicationSettingsState applicationSettingsState, File scanDirectory, PipelineScanAutoPrePushHandler pipelineScanAutoPrePushHandler) {
+        try {
+            Process process = OsCommandRunner.runCommand("pipeline scan",
+                    buildPolicyFetchCommand(new File(scanDirectory, "pipeline-scan.jar"),
+                            applicationSettingsState), scanDirectory, pipelineScanAutoPrePushHandler);
+            if (process.exitValue() != 0) {
+                throw new VeracodePipelineScanException("Error downloading policy file",
+                        "Unable to download policy named " + applicationSettingsState.getPolicyToEvaluate().trim());
+            }
+        } catch (VeracodePipelineScanException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private String buildPolicyFetchCommand(File pipelineScanner, ApplicationSettingsState applicationSettingsState) throws VeracodePipelineScanException {
         StringBuilder commandBuilder = new StringBuilder("java " + addProxySettingsIfNeeded(applicationSettingsState) +
                 "-jar \"" + pipelineScanner.getAbsolutePath() + "\" ");
         addCredentialsParameters(applicationSettingsState, commandBuilder);
-        appendParameter(commandBuilder, "fail_on_severity", applicationSettingsState.getFailOnSeverity());
+        appendParameter(commandBuilder, "request_policy",
+                applicationSettingsState.getPolicyToEvaluate().trim());
+
+        LOG.info(commandBuilder.toString());
+        return commandBuilder.toString();
+    }
+
+    @NotNull
+    private String buildScanCommand(File pipelineScanner, ApplicationSettingsState applicationSettingsState) throws VeracodePipelineScanException {
+        StringBuilder commandBuilder = new StringBuilder("java " + addProxySettingsIfNeeded(applicationSettingsState) +
+                "-jar \"" + pipelineScanner.getAbsolutePath() + "\" ");
+        addCredentialsParameters(applicationSettingsState, commandBuilder);
+        String failOnSeverity = applicationSettingsState.getFailOnSeverity();
+        if (!Strings.isNullOrEmpty(failOnSeverity)) {
+            appendParameter(commandBuilder, "fail_on_severity", failOnSeverity);
+        }
         appendParameter(commandBuilder, "file",
                 new File(baseDirectory, projectSettingsState.getFileToScan()).getAbsolutePath());
         appendParameter(commandBuilder, "json_output_file", PipelineScanAutoPrePushHandler.PIPELINE_RESULTS_JSON);
@@ -130,6 +162,13 @@ public class PipelineScanWrapper implements Closeable {
                 appendParameter(commandBuilder, "baseline_file",
                         new File(baseDirectory, trimmedBaselineFile).toString());
             }
+        }
+        if (!Strings.isNullOrEmpty(applicationSettingsState.getPolicyToEvaluate())) {
+            appendParameter(commandBuilder, "policy_file",
+                    applicationSettingsState.getPolicyToEvaluate().trim().replace(' ', '_') + ".json");
+        }
+        if (!Strings.isNullOrEmpty(projectSettingsState.getModuleSelection())) {
+            appendParameter(commandBuilder, "include", projectSettingsState.getModuleSelection());
         }
         LOG.info(commandBuilder.toString());
         return commandBuilder.toString();

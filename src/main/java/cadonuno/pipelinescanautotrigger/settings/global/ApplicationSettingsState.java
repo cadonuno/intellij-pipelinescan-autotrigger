@@ -19,6 +19,8 @@ public class ApplicationSettingsState implements PersistentStateComponent<Applic
     private boolean shouldFailOnLow = false;
     private boolean shouldFailOnInformational = false;
 
+    private String policyToEvaluate = "";
+
     private String apiId = "";
     private String apiKey = "";
 
@@ -181,5 +183,13 @@ public class ApplicationSettingsState implements PersistentStateComponent<Applic
 
     public void setProxyHost(String proxyHost) {
         this.proxyHost = proxyHost;
+    }
+
+    public String getPolicyToEvaluate() {
+        return policyToEvaluate;
+    }
+
+    public void setPolicyToEvaluate(String policyToEvaluate) {
+        this.policyToEvaluate = policyToEvaluate;
     }
 }

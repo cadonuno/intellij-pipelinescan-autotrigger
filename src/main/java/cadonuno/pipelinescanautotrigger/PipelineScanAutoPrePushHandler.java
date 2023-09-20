@@ -142,6 +142,7 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
             try {
                 Process process = OsCommandRunner.runCommand("Application Build",
                         projectSettingsState.getBuildCommand(), new File(baseDirectory), this);
+                LOG.info("Left with return code of " + process.exitValue());
                 if (process.exitValue() != 0) {
                     try {
                         MessageHandler.showErrorPopup(VERACODE_PIPELINE_SCAN + "Unable to build application!", OsCommandRunner.readErrorLog(process));
@@ -311,16 +312,19 @@ public class PipelineScanAutoPrePushHandler implements PrePushHandler {
                 hasAddedASeverity, scanFailCriteriaForErrorMessage, "High");
         hasAddedASeverity = addForSeverityIfNecessary(applicationSettingsState.isShouldFailOnVeryHigh(),
                 hasAddedASeverity, scanFailCriteriaForErrorMessage, "Very High");
+        hasAddedASeverity = addForSeverityIfNecessary(
+                !Strings.isNullOrEmpty(applicationSettingsState.getPolicyToEvaluate()),
+                hasAddedASeverity, scanFailCriteriaForErrorMessage, "Policy: " + applicationSettingsState.getPolicyToEvaluate());
         return hasAddedASeverity ? scanFailCriteriaForErrorMessage.toString() : "";
     }
 
     private boolean addForSeverityIfNecessary(boolean toEvaluate, boolean hasAddedASeverity,
-                                              StringBuilder scanFailCriteriaForErrorMessage, String severity) {
+                                              StringBuilder scanFailCriteriaForErrorMessage, String valueToAppend) {
         if (toEvaluate) {
             if (hasAddedASeverity) {
                 scanFailCriteriaForErrorMessage.append(", ");
             }
-            scanFailCriteriaForErrorMessage.append(severity);
+            scanFailCriteriaForErrorMessage.append(valueToAppend);
             hasAddedASeverity = true;
         }
         return hasAddedASeverity;

@@ -9,13 +9,10 @@ import javax.swing.*;
 public class ApplicationSettingsConfigurable implements Configurable {
     private ApplicationSettingsComponent applicationSettingsComponent;
 
-    // A default constructor with no arguments is required because this implementation
-    // is registered as an applicationConfigurable EP
-
     @Nls(capitalization = Nls.Capitalization.Title)
     @Override
     public String getDisplayName() {
-        return "Pipeline Scan Auto-Trigger";
+        return "Veracode - Pipeline Scan";
     }
 
     @Override
@@ -47,6 +44,7 @@ public class ApplicationSettingsConfigurable implements Configurable {
         modified |= !applicationSettingsComponent.getProxyUsername().equals(settings.getProxyUsername());
         modified |= !applicationSettingsComponent.getProxyPassword().equals(settings.getProxyPassword());
         modified |= !applicationSettingsComponent.getOptArgs().equals(settings.getOptArgs());
+        modified |= !applicationSettingsComponent.getPolicyToEvaluate().equals(settings.getPolicyToEvaluate());
         return modified;
     }
 
@@ -67,6 +65,7 @@ public class ApplicationSettingsConfigurable implements Configurable {
         settings.setProxyUsername(applicationSettingsComponent.getProxyUsername());
         settings.setProxyPassword(applicationSettingsComponent.getProxyPassword());
         settings.setOptArgs(applicationSettingsComponent.getOptArgs());
+        settings.setPolicyToEvaluate(applicationSettingsComponent.getPolicyToEvaluate());
     }
 
     @Override
@@ -86,6 +85,7 @@ public class ApplicationSettingsConfigurable implements Configurable {
         applicationSettingsComponent.setProxyUsername(settings.getProxyUsername());
         applicationSettingsComponent.setProxyPassword(settings.getProxyPassword());
         applicationSettingsComponent.setOptArgs(settings.getOptArgs());
+        applicationSettingsComponent.setPolicyToEvaluate(settings.getPolicyToEvaluate());
     }
 
     @Override
