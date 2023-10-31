@@ -170,7 +170,6 @@ public class PipelineScanWrapper implements Closeable {
         if (!Strings.isNullOrEmpty(projectSettingsState.getModuleSelection())) {
             appendParameter(commandBuilder, "include", projectSettingsState.getModuleSelection());
         }
-        LOG.info(commandBuilder.toString());
         return commandBuilder.toString();
     }
 

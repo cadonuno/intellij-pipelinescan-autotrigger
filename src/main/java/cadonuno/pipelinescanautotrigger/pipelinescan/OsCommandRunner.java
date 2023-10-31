@@ -21,7 +21,7 @@ public class OsCommandRunner {
 
         LOG.info("Running " + title);
         LOG.debug(commandToRun);
-        LOG.debug(workDirectory.getAbsolutePath());
+        LOG.info("Running on " + workDirectory.getAbsolutePath());
         try {
             Process process = new ProcessBuilder(convertCommandToArray(commandToRun))
                     .directory(workDirectory).start();
@@ -32,7 +32,7 @@ public class OsCommandRunner {
                     logLine(pipelineScanAutoPrePushHandler, line);
                 } while (line != null);
             }
-            LOG.info("Waiting for process");
+            LOG.info("Waiting for process to finish");
             process.waitFor();
             return process;
         } catch (IOException | InterruptedException e) {
@@ -49,7 +49,6 @@ public class OsCommandRunner {
 
     private static String[] convertCommandToArray(String commandToRun) {
         String[] splitBySpaces = commandToRun.split(" ");
-        LOG.info("Building command: " + commandToRun);
         List<String> parametersAsList = new ArrayList<>(
                 PlatformDependent.isWindows()
                         ? Arrays.asList("cmd.exe", "/C")
@@ -74,7 +73,6 @@ public class OsCommandRunner {
     }
 
     private static void addToList(List<String> parametersAsList, String element) {
-        LOG.info("Adding to list: " + element);
         parametersAsList.add(element);
     }
 

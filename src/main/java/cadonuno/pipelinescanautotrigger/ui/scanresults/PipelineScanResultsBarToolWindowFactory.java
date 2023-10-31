@@ -297,6 +297,7 @@ public class PipelineScanResultsBarToolWindowFactory implements ToolWindowFactor
                             .orElseGet(() -> new PipelineScanAutoPrePushHandler(project));
 
             BackgroundableProcessIndicator progressWindow = new BackgroundableProcessIndicator(handler.getProject(), PROGRESS_TASK_INFO);
+            progressWindow.setIndeterminate(false);
             progressWindow.setTitle("Running pipeline scan");
             projectToProgressIndicatorWindowMap.put(project, progressWindow);
 
